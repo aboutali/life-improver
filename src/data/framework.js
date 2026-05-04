@@ -1,4 +1,4 @@
-// The seven grounds of a life.
+// The seven dimensions of a life.
 //
 // Each domain contains a description, plus subcategories that each carry
 // their own description and a list of concrete practices. To extend the
@@ -9,6 +9,8 @@
 //   { id, domain, desc, subs: [ { name, desc, ideas: string[] } ] }
 //
 // Domain `id` is part of the score key — keep it stable and unique.
+// Sub order within a domain is also part of the score key (by index) —
+// append, never reorder.
 
 export const FRAMEWORK = [
   {
@@ -18,7 +20,7 @@ export const FRAMEWORK = [
     subs: [
       {
         name: "Movement & Fitness",
-        desc: "Cardiovascular health, strength, flexibility, and physical capacity. The WHO framework and exercise science agree: deliberate movement is non-negotiable for longevity and mental clarity.",
+        desc: "Strength, endurance, flexibility. Sport in any form that builds physical capacity.",
         ideas: [
           "Follow a structured strength program (e.g. 5/3/1, Starting Strength) instead of improvising at the gym",
           "Walk 8,000+ steps daily — the longevity sweet spot per large-scale meta-analyses",
@@ -33,8 +35,8 @@ export const FRAMEWORK = [
         ]
       },
       {
-        name: "Nutrition & Substance",
-        desc: "What you consume — food quality, hydration, alcohol, stimulants. Ayurveda, Traditional Chinese Medicine, and modern nutritional science all treat diet as medicine.",
+        name: "Nutrition",
+        desc: "Quantity and macros, quality, toxins, supplements, drinks and alcohol.",
         ideas: [
           "Eat 30+ different plants per week — the single strongest predictor of gut microbiome diversity",
           "Front-load protein: 30g+ at breakfast to stabilize blood sugar and reduce cravings",
@@ -50,7 +52,7 @@ export const FRAMEWORK = [
       },
       {
         name: "Sleep & Recovery",
-        desc: "Sleep quality, rest cycles, and nervous system regulation. Matthew Walker's research frames sleep as the foundation everything else sits on. Without it, cognition, mood, and immunity all degrade.",
+        desc: "Quantity, quality, sleep cycles, depth, and regulation of the autonomic nervous system.",
         ideas: [
           "Fix your wake time (±30 min, even weekends) — regularity matters more than duration",
           "Create a 30-minute wind-down ritual: dim lights, no screens, same sequence nightly",
@@ -66,7 +68,7 @@ export const FRAMEWORK = [
       },
       {
         name: "Medical & Preventive Health",
-        desc: "Screenings, chronic condition management, dental, vision, hormonal health. The unglamorous domain most people neglect until something breaks.",
+        desc: "Check-ups, repairs, and the ongoing management of chronic conditions.",
         ideas: [
           "Schedule an annual comprehensive blood panel (lipids, HbA1c, thyroid, vitamin D, B12, iron)",
           "Get a dental cleaning every 6 months — oral health correlates with cardiovascular risk",
@@ -81,15 +83,15 @@ export const FRAMEWORK = [
         ]
       },
       {
-        name: "Physical Environment",
-        desc: "Your spaces: home, workspace, air quality, light, noise, order. Environmental psychology shows that surroundings shape behavior and mood more powerfully than most people realize.",
+        name: "Environment & Body",
+        desc: "Light, noise, pollution, cleanliness, order, home, and safety.",
         ideas: [
           "Declutter one room using the 'does it earn its space?' test — environment shapes cognition",
           "Optimize desk ergonomics: monitor at eye height, 90° elbows, feet flat",
           "Maximize natural light in your workspace — daylight improves mood, focus, and sleep",
           "Add plants: even 3–5 reduce stress and increase perceived air quality",
           "Create distinct zones for work, rest, and play — spatial boundaries support mode-switching",
-          "Reduce visual noise: clear countertops, hide cables, use closed storage",
+          "Make your home secure: working locks, smoke and CO detectors, an emergency contact list everyone knows",
           "Invest in air quality: open windows daily, consider a purifier if in a polluted area",
           "Control noise: use white noise, earplugs, or acoustic panels if your environment is loud",
           "Do a seasonal deep clean (4x/year) — maintenance is easier than recovery",
@@ -100,12 +102,12 @@ export const FRAMEWORK = [
   },
   {
     id: 2,
-    domain: "Mind & Growth",
+    domain: "Mind & Learning",
     desc: "The quality of your life is the quality of your attention. Aristotle opens the Metaphysics with 'all humans by nature desire to know.' Buddhism treats mental training as the path itself. Csikszentmihalyi's flow research shows that optimal experience comes from challenges matched to skill. A mind that isn't growing is stagnating.",
     subs: [
       {
         name: "Learning & Intellectual Stimulation",
-        desc: "Formal or informal education, reading, and curiosity-driven exploration. The examined life requires raw material — new ideas, unfamiliar perspectives, difficult questions.",
+        desc: "Formal and informal education, reading (fiction and non-fiction), curiosity.",
         ideas: [
           "Read 20+ books per year across genres — alternate between depth and breadth",
           "Take one structured course per quarter on a topic outside your profession",
@@ -121,7 +123,7 @@ export const FRAMEWORK = [
       },
       {
         name: "Mental Health & Emotional Regulation",
-        desc: "Therapy, self-awareness, managing anxiety and depression, emotional literacy. CBT, DBT, and Stoic cognitive reframing all converge: how you relate to your thoughts determines how you experience life.",
+        desc: "Therapy, introspection, self-knowledge, anxiety and depression, emotional literacy.",
         ideas: [
           "Try therapy even when things are 'fine' — maintenance therapy prevents crises",
           "Build an emotion vocabulary: name 10+ distinct emotions beyond 'good' and 'bad'",
@@ -137,7 +139,7 @@ export const FRAMEWORK = [
       },
       {
         name: "Cognitive Maintenance",
-        desc: "Focus, memory, digital hygiene, and attention management. Cal Newport's deep work, Buddhist samadhi, and cognitive decline research all converge: can you sustain attention when it matters?",
+        desc: "Attention (digital and analog), memory, digital hygiene, concentration.",
         ideas: [
           "Time-block deep work in 90-minute ultradian cycles with genuine breaks between",
           "Use a single capture system so nothing lives rent-free in working memory",
@@ -153,7 +155,7 @@ export const FRAMEWORK = [
       },
       {
         name: "Creative Expression",
-        desc: "Making things that didn't exist before: writing, music, design, building. Maslow placed creativity at the peak of self-actualization. Frankl saw it as a primary source of meaning.",
+        desc: "Writing, music, design, images, crafts — making things that didn't exist before.",
         ideas: [
           "Commit to a daily creative practice — even 15 minutes compounds over months",
           "Ship something: publish, share, record — finishing matters more than perfecting",
@@ -175,8 +177,8 @@ export const FRAMEWORK = [
     desc: "Your contribution through professional effort — mastery, impact, and financial sustainability. Frankl's 'creative values' (meaning through what you give), Ikigai's intersection of skill and need, and Self-Determination Theory's need for competence. Work is how you leave a mark on the world.",
     subs: [
       {
-        name: "Mastery & Skill Development",
-        desc: "Getting better at what you do. Deliberate practice, Zen craftsmanship, the Lutheran concept of Beruf (vocation) — mastery is a moral act, not just a career strategy.",
+        name: "Skill & Mastery",
+        desc: "The deliberate development of your craft. Practice, technique, vocation.",
         ideas: [
           "Identify the 2–3 skills that drive your professional value and invest 80% of growth time there",
           "Practice deliberately: target weaknesses with focused drills, not comfortable repetition",
@@ -192,7 +194,7 @@ export const FRAMEWORK = [
       },
       {
         name: "Impact & Contribution",
-        desc: "The value your work creates for others. Frankl's creative values, Ikigai's 'what the world needs,' effective altruism's measurable good. Impact is meaning made tangible.",
+        desc: "Your added value for others and for the world.",
         ideas: [
           "Define your personal theory of impact: what change do you want your work to create?",
           "Measure output in outcomes delivered, not hours logged",
@@ -207,8 +209,8 @@ export const FRAMEWORK = [
         ]
       },
       {
-        name: "Career Strategy & Positioning",
-        desc: "Trajectory, reputation, network capital, optionality. Distinct from daily craft — this is the chess game of where you're heading and what doors you're opening or closing.",
+        name: "Career",
+        desc: "Career goals and direction, reputation, network, optionality.",
         ideas: [
           "Write a personal career strategy memo every 12 months",
           "Build a skill stack — combine 2–3 competencies where you're top 20% to become unique",
@@ -223,8 +225,8 @@ export const FRAMEWORK = [
         ]
       },
       {
-        name: "Financial Health",
-        desc: "Income, savings, debt, investment, insurance, literacy. Stoic oikonomia treats this as foundational responsibility, not vanity. Money stress corrodes everything else.",
+        name: "Finances",
+        desc: "Income, savings, wealth, debt, investments, insurance, financial literacy.",
         ideas: [
           "Automate savings: automatic transfers on payday so saving isn't a monthly decision",
           "Build a 6-month emergency fund before optimizing investments",
@@ -239,8 +241,8 @@ export const FRAMEWORK = [
         ]
       },
       {
-        name: "Working Conditions & Sustainability",
-        desc: "Hours, autonomy, stress load, commute, boss quality. Herzberg's hygiene factors — these won't make you love work, but their absence will destroy you.",
+        name: "Working Conditions",
+        desc: "Hours, autonomy, stress, commute, leadership.",
         ideas: [
           "Set hard boundaries on work hours — protect at least 2 evenings per week",
           "Negotiate for autonomy over schedule and location — the #1 driver of job satisfaction",
@@ -249,7 +251,7 @@ export const FRAMEWORK = [
           "Design your workday around energy, not time: creative work when sharp, admin when depleted",
           "Have a shutdown ritual marking the transition from work to personal life",
           "Audit your meeting load quarterly — decline any without a clear agenda",
-          "Build a 'sustainable pace' — the pace you can maintain for 10 years, not 10 weeks",
+          "Audit your commute: long stressful commutes correlate strongly with low life satisfaction. Reduce, change, or relocate",
           "Cultivate at least one genuine friendship at work — belonging buffers stress",
           "If conditions are chronically bad despite effort, treat job change as a health decision"
         ]
@@ -263,7 +265,7 @@ export const FRAMEWORK = [
     subs: [
       {
         name: "Romantic Partnership",
-        desc: "Intimacy, conflict resolution, shared vision, sexuality. Gottman's research provides the strongest empirical base. Attachment theory explains the mechanics beneath the surface.",
+        desc: "Psychological intimacy, physical intimacy, sexuality, shared goals, conflict and harmony.",
         ideas: [
           "Schedule a weekly 'state of us' check-in — 20 minutes for feelings, not logistics",
           "Maintain a 5:1 positive-to-negative interaction ratio — the empirical stability threshold",
@@ -279,7 +281,7 @@ export const FRAMEWORK = [
       },
       {
         name: "Family of Origin",
-        desc: "Parents, siblings, extended family. Bowen's family systems theory, Confucian filial piety, and psychodynamic insight agree: these relationships shape your internal working models for life.",
+        desc: "Parents, siblings, relatives — and the quality of those relationships.",
         ideas: [
           "Map your family system with a genogram — it reveals inherited patterns",
           "Have at least one honest conversation per year with each parent about something real",
@@ -295,7 +297,7 @@ export const FRAMEWORK = [
       },
       {
         name: "Family You Build",
-        desc: "Children, parenting, chosen family. The role reverses — you become the attachment figure. Winnicott's 'good enough' parenting shows perfection is neither possible nor desirable.",
+        desc: "Children, parenting, the satisfaction you find in your chosen family.",
         ideas: [
           "Define your 3 core parenting values with your partner and align explicitly",
           "Be the parent who is present, not perfect — perfection backfires",
@@ -311,7 +313,7 @@ export const FRAMEWORK = [
       },
       {
         name: "Close Friendships",
-        desc: "Your inner circle of non-family bonds. Aristotle's philia as essential to the good life. Dunbar's ~5 person intimate layer. These relationships are chosen and therefore precious.",
+        desc: "The quality of your closest friendships — intimacy, support, having someone to lean on.",
         ideas: [
           "Audit your friendship circle: who energizes vs. drains you? Invest accordingly",
           "Initiate proactively — the person who reaches out keeps the friendship",
@@ -333,8 +335,8 @@ export const FRAMEWORK = [
     desc: "Beyond your inner circle. Aristotle saw humans as zoon politikon. Durkheim showed that social integration protects against despair. Putnam's research confirms that weak ties and community matter independently of close relationships. You are part of something larger than your household.",
     subs: [
       {
-        name: "Social Network & Weak Ties",
-        desc: "Acquaintances, colleagues, neighbors. Granovetter's 'strength of weak ties' shows these are your bridge to opportunity, information, and resilience.",
+        name: "Social Network & Acquaintances",
+        desc: "Diversity, quantity, and quality of acquaintances — beyond your intimate relationships.",
         ideas: [
           "Have a 5-minute genuine conversation with one acquaintance per week",
           "Attend one social event per month outside your usual circle",
@@ -349,8 +351,8 @@ export const FRAMEWORK = [
         ]
       },
       {
-        name: "Cultural & Identity Belonging",
-        desc: "Ethnic, national, linguistic, subcultural roots. Erikson's identity development, the Islamic ummah, the Jewish klal Yisrael — belonging to something larger provides existential grounding.",
+        name: "Culture & Identity",
+        desc: "Satisfaction with your identity and origin, plus knowledge of the cultures and traditions you identify with.",
         ideas: [
           "Learn about your cultural heritage: read history, visit ancestral places, talk to elders",
           "Practice or revive a tradition: ancestral recipes, traditional holidays, heritage language",
@@ -366,7 +368,7 @@ export const FRAMEWORK = [
       },
       {
         name: "Civic & Political Participation",
-        desc: "Voting, volunteering, governance, activism. Catholic subsidiarity, Aristotle's political animal, Putnam's social capital — civic life is not optional for a complete human.",
+        desc: "Voting, volunteering, local leadership, activism, associations and clubs.",
         ideas: [
           "Vote in every election — local ones often matter more for daily life",
           "Attend one local government meeting per year — witness how decisions get made",
@@ -381,8 +383,8 @@ export const FRAMEWORK = [
         ]
       },
       {
-        name: "Digital Community & Presence",
-        desc: "Online identity, social media, digital reputation. Turkle's research shows digital presence shapes belonging and self-concept as powerfully as physical community.",
+        name: "Digital Presence",
+        desc: "Your identity in cyberspace, social media, and the public square.",
         ideas: [
           "Curate feeds: unfollow comparison triggers, follow what inspires or informs",
           "Contribute more than you consume: post useful content, answer questions",
@@ -400,12 +402,12 @@ export const FRAMEWORK = [
   },
   {
     id: 6,
-    domain: "Inner Life & Meaning",
+    domain: "Inner World & Meaning",
     desc: "Purpose, values, spiritual practice, and your relationship with mortality. Frankl's core insight: meaning is the deepest human need. The Stoic examined life, the Buddhist path, the Islamic niyyah. Whether through religion, meditation, or philosophy, this domain asks the only question that matters: what is this all for?",
     subs: [
       {
-        name: "Purpose & Direction",
-        desc: "Your answer to 'why am I here?' Frankl's logotherapy, Nietzsche's 'he who has a why can bear almost any how,' Buddhist right intention. Purpose is not discovered — it is constructed.",
+        name: "Purpose & Intention",
+        desc: "Your personal answer to the purpose of your existence — why am I here?",
         ideas: [
           "Write a personal mission statement and revise it annually",
           "Ask the deathbed test: at 90, what would you regret not doing?",
@@ -420,8 +422,8 @@ export const FRAMEWORK = [
         ]
       },
       {
-        name: "Values & Integrity",
-        desc: "Living in alignment with what you say matters. Stoic virtue ethics, Islamic taqwa, moral psychology's value-action gap research. Integrity is the distance between your words and your behavior.",
+        name: "Ethical Integrity & Values",
+        desc: "Defining your own value compass and living in congruence with it.",
         ideas: [
           "Rank your top 5 values — hierarchy resolves conflicts between them",
           "Track your value-action gap: where do you say one thing and do another?",
@@ -436,8 +438,8 @@ export const FRAMEWORK = [
         ]
       },
       {
-        name: "Spiritual & Contemplative Practice",
-        desc: "Prayer, meditation, ritual, nature, awe. William James, Kabat-Zinn, and every wisdom tradition agree: regular practice changes the quality of experience itself.",
+        name: "Spirituality & Mindfulness",
+        desc: "Rituals, faith, religion, meditation, connection with nature — theistic and secular.",
         ideas: [
           "Establish a daily contemplative practice — even 10 minutes of meditation, prayer, or silence",
           "Try multiple traditions before settling: Vipassana, Zen, Centering Prayer, yoga",
@@ -452,8 +454,8 @@ export const FRAMEWORK = [
         ]
       },
       {
-        name: "Relationship with Mortality & Suffering",
-        desc: "How you hold impermanence, loss, grief, and death. Buddhist anicca, Stoic memento mori, Heidegger's Being-toward-death. What cannot be avoided must be faced.",
+        name: "Relationship with Suffering",
+        desc: "Acceptance and equanimity with your own and others' suffering, death, and impermanence.",
         ideas: [
           "Practice memento mori: keep a visual reminder of death — it sharpens life",
           "Write or update your will, advance directive, and letter of wishes",
@@ -471,12 +473,12 @@ export const FRAMEWORK = [
   },
   {
     id: 7,
-    domain: "Play & Rest",
+    domain: "Leisure & Pleasure",
     desc: "Joy, recreation, beauty, restoration. Aristotle argued that leisure — not work — is the purpose of life. Sabbath traditions encode mandatory rest. Burnout research confirms recovery is not optional. The bowl must be emptied to be filled.",
     subs: [
       {
-        name: "Active Recreation & Hobbies",
-        desc: "Sports, games, adventures done purely for enjoyment. Huizinga's Homo Ludens argues play is foundational to culture. The hobby with no point is the one that saves you.",
+        name: "Leisure Activities & Hobbies",
+        desc: "Sports, games, projects done for pleasure, travel.",
         ideas: [
           "Maintain at least one hobby with zero productivity pressure",
           "Try one completely new activity per quarter: surfing, dancing, woodworking",
@@ -491,8 +493,8 @@ export const FRAMEWORK = [
         ]
       },
       {
-        name: "Passive Restoration & Leisure",
-        desc: "Watching, reading for pleasure, daydreaming, doing nothing. Sabbath traditions, Daoist wu wei, and default mode network neuroscience all validate deliberate non-doing as essential.",
+        name: "Recovery & Relaxation",
+        desc: "Media consumption, down-time, doing nothing.",
         ideas: [
           "Schedule one full rest day per week — the Sabbath principle transcends religion",
           "Practice doing nothing for 20 minutes: no phone, no book — just sit",
@@ -508,7 +510,7 @@ export const FRAMEWORK = [
       },
       {
         name: "Aesthetics & Beauty",
-        desc: "Art, music, nature, design, sensory pleasure. Kant's Critique of Judgment, Islamic jamal (divine beauty), neuroaesthetics. To notice beauty is a practice that deepens with attention.",
+        desc: "Art, music, nature, design, sensory pleasure.",
         ideas: [
           "Visit a museum, gallery, or exhibition once per month",
           "Listen to one full album per week: headphones, no distractions",
@@ -523,8 +525,8 @@ export const FRAMEWORK = [
         ]
       },
       {
-        name: "Humor & Lightness",
-        desc: "Laughter, absurdity, not taking yourself too seriously. Frankl listed humor as a survival mechanism. Positive psychology links it to resilience. If you can laugh at it, it has less power over you.",
+        name: "Humor",
+        desc: "Laughter, lightness, not taking yourself too seriously.",
         ideas: [
           "Watch one comedy special per month — laughter is a physiological reset",
           "Practice laughing at yourself when you mess up — it reduces shame",

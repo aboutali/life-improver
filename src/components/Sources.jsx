@@ -7,13 +7,13 @@ export default function Sources() {
     <div>
       <div style={{ marginBottom: 24 }}>
         <p className="sf" style={{ fontSize: 18, color: "#1A1A1A", marginBottom: 8 }}>
-          The roots beneath the garden
+          The thinking behind it.
         </p>
         <p style={{ fontSize: 14, color: "#666", maxWidth: 600 }}>
-          This framework does not emerge from one mind. It is a synthesis of work spanning millennia — from Aristotle to attachment theory, from the Dhammapada to the Harvard Study of Adult Development. Below are the key sources, organized by discipline.
+          None of this is invented. Every dimension, every category, every practice traces back to research, philosophy, or tradition that has stood the test of time.
         </p>
         <p style={{ fontSize: 13, color: "#999", marginTop: 8 }}>
-          {total} sources across {SOURCES.length} categories
+          {total} sources · {SOURCES.length} disciplines
         </p>
       </div>
 

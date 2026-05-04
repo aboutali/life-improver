@@ -8,10 +8,10 @@ export default function Overview() {
     <div>
       <div style={{ marginBottom: 24 }}>
         <p className="sf" style={{ fontSize: 18, color: "#1A1A1A", marginBottom: 8 }}>
-          The seven grounds of a life
+          The seven dimensions.
         </p>
         <p style={{ fontSize: 14, color: "#666", maxWidth: 600 }}>
-          Each domain is a ground you stand on daily, whether you tend to it or not. Neglect does not empty the ground — it lets weeds grow. Expand each below to see its full landscape.
+          Every meaningful life moves between these seven. Tap any to see what's inside.
         </p>
       </div>
       {FRAMEWORK.map((d, i) => (
