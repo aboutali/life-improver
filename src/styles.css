@@ -1,5 +1,14 @@
 @import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@300;400;600;700&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,600&display=swap');
 
+:root {
+  /* Fluid type scale. Each token's max == the previous fixed desktop size,
+     so desktop is pixel-identical; only tablet/mobile shrink. */
+  --fs-display: clamp(2.75rem, 1rem + 7vw, 5rem);      /* hero score:   44 -> 80px */
+  --fs-h1:      clamp(1.5rem, 1rem + 2vw, 1.875rem);   /* headline:     24 -> 30px */
+  --fs-title:   clamp(1.125rem, 0.9rem + 0.6vw, 1.25rem);  /* score read.: 18 -> 20px */
+  --fs-lead:    clamp(1rem, 0.9rem + 0.45vw, 1.125rem);    /* section lede: 16 -> 18px */
+}
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
@@ -92,5 +101,4 @@ body {
   .ob { padding: 0 16px 16px; }
   .ti { padding: 10px 14px; font-size: 13px; }
   .ir { padding: 12px 12px; }
-  h1 { font-size: 24px !important; }
 }

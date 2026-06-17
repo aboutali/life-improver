@@ -11,7 +11,7 @@ export default function Ideas() {
   return (
     <div>
       <div style={{ marginBottom: 24 }}>
-        <p className="sf" style={{ fontSize: 18, color: "#1A1A1A", marginBottom: 8 }}>
+        <p className="sf" style={{ fontSize: "var(--fs-lead)", color: "#1A1A1A", marginBottom: 8 }}>
           {TOTAL_IDEAS} ways forward.
         </p>
         <p style={{ fontSize: 14, color: "#666", maxWidth: 600 }}>
@@ -52,7 +52,7 @@ export default function Ideas() {
             </div>
 
             <div style={{ marginBottom: 16 }}>
-              <p style={{ fontWeight: 600, fontSize: 18, color: "#1A1A1A", marginBottom: 4 }}>{sub.name}</p>
+              <p style={{ fontWeight: 600, fontSize: "var(--fs-lead)", color: "#1A1A1A", marginBottom: 4 }}>{sub.name}</p>
               <p style={{ fontSize: 13, color: "#888", lineHeight: 1.6 }}>{sub.desc}</p>
             </div>
 

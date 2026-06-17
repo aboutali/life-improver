@@ -7,7 +7,7 @@ export default function Overview() {
   return (
     <div>
       <div style={{ marginBottom: 24 }}>
-        <p className="sf" style={{ fontSize: 18, color: "#1A1A1A", marginBottom: 8 }}>
+        <p className="sf" style={{ fontSize: "var(--fs-lead)", color: "#1A1A1A", marginBottom: 8 }}>
           The seven dimensions.
         </p>
         <p style={{ fontSize: 14, color: "#666", maxWidth: 600 }}>

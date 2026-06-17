@@ -23,7 +23,7 @@ export default function SelfAssessment({ scores }) {
   return (
     <div>
       <div style={{ marginBottom: 24 }}>
-        <p className="sf" style={{ fontSize: 18, color: "#1A1A1A", marginBottom: 8 }}>
+        <p className="sf" style={{ fontSize: "var(--fs-lead)", color: "#1A1A1A", marginBottom: 8 }}>
           How are you, really?
         </p>
         <p style={{ fontSize: 14, color: "#666", maxWidth: 600 }}>
@@ -120,7 +120,7 @@ export default function SelfAssessment({ scores }) {
                     {sc && (
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 14, padding: "10px 14px", background: color + "15", borderLeft: `3px solid ${color}` }}>
                         <span style={{ fontSize: 13, fontWeight: 600, color }}>{label}</span>
-                        <span style={{ fontSize: 20, fontWeight: 300, color }}>{sc}</span>
+                        <span style={{ fontSize: "var(--fs-title)", fontWeight: 300, color }}>{sc}</span>
                       </div>
                     )}
                   </div>
@@ -202,7 +202,7 @@ function Dashboard({ scores }) {
           <p style={{ fontSize: 11, color: "#64748B", letterSpacing: .5 }}>{date}</p>
         </div>
         <div style={{ textAlign: "center", marginBottom: 32 }}>
-          <p className="sf" style={{ fontSize: 80, fontWeight: 200, color: brightTierColor(parseFloat(avg)), lineHeight: .95, letterSpacing: -2 }}>{avg}</p>
+          <p className="sf" style={{ fontSize: "var(--fs-display)", fontWeight: 200, color: brightTierColor(parseFloat(avg)), lineHeight: .95, letterSpacing: -2 }}>{avg}</p>
           <p style={{ fontSize: 10, letterSpacing: 2, color: "#64748B", marginTop: 10, textTransform: "uppercase", fontWeight: 600 }}>
             Overall · {scores.scoredCount}/{TOTAL_SUBS}
           </p>
