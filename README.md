@@ -4,11 +4,10 @@
 
 An interactive framework of meaningful life practices, rooted in psychology, philosophy, and the world's contemplative traditions. The app maps **seven domains** of a complete human life — Body, Mind, Work, Relationships, Community, Inner Life, and Play — into 30 subcategories with 300+ concrete practices, each traceable back to its source.
 
-It's a tool for three things:
+It's a tool for two things:
 
 - **Develop** — extend a curated body of life practices through pull requests.
 - **Use** — explore practices, rate yourself across the seven grounds, and see where the water wants to go. Your assessment is saved locally to your browser.
-- **Extend** — add your own practices to any subcategory directly from the UI; they live in your browser alongside the curated set.
 
 ## Run it locally
 
@@ -31,8 +30,8 @@ npm run preview
 Four tabs:
 
 1. **Overview** — accordion of the seven domains and their subcategories with descriptions.
-2. **Self-Assessment** — rate each subcategory 1–10. The app surfaces your lowest scores under "where the water wants to go" and persists everything to `localStorage`.
-3. **Ideas to Improve** — ten curated practices per subcategory, plus a small input to append your own.
+2. **Self-Assessment** — pick a domain and rate each subcategory 1–10 on a slider. A results dashboard then summarizes your overall score, per-domain averages, a tier distribution, your strongest and weakest areas, and a generated read on the pattern. Everything persists to `localStorage`.
+3. **Ideas to Improve** — ten curated practices per subcategory, navigated by domain and subcategory.
 4. **Sources** — every theory, study, and tradition that backs the practices, organized by discipline.
 
 ## Project structure
@@ -47,14 +46,12 @@ src/
 │   └── sources.js           # citations, organized by discipline
 ├── hooks/
 │   ├── usePersistentState.js  # useState mirrored to localStorage
-│   ├── useScores.js           # 1–10 scores + averages + lowest list
-│   └── useCustomPractices.js  # user-added practices per sub
+│   └── useScores.js           # 1–10 scores + averages + lowest list
 └── components/
     ├── Header.jsx
     ├── TabBar.jsx
-    ├── DomainSidebar.jsx    # shared between Self-Assessment and Ideas
     ├── Overview.jsx
-    ├── SelfAssessment.jsx
+    ├── SelfAssessment.jsx     # sliders + results dashboard
     ├── Ideas.jsx
     └── Sources.jsx
 ```
@@ -87,10 +84,6 @@ A few conventions worth keeping:
 - **Citations.** When you add a practice that leans on a specific source, add or update the matching entry in `src/data/sources.js` so the Sources tab stays a real index, not a museum.
 - **`id` is load-bearing.** Score keys are `${domain.id}-${subIndex}`. Don't reuse or renumber existing ids — you'd silently strand stored assessments.
 - **Sub order is also load-bearing** for the same reason. Append new subs; don't reorder existing ones.
-
-## Adding your own practices (without forking)
-
-The Ideas tab has an input at the bottom of every subcategory. Anything you add there is stored in `localStorage` under `life-improver:custom-practices:v1` and tagged "yours" in the list. Clearing your browser data clears them.
 
 ## Sources
 
