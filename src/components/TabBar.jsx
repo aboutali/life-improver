@@ -1,4 +1,4 @@
-export const TABS = ["Overview", "Self-Assessment", "Ideas to Improve", "Sources"];
+const TABS = ["Overview", "Self-Assessment", "Ideas to Improve", "Sources"];
 
 export default function TabBar({ tab, onChange }) {
   return (
