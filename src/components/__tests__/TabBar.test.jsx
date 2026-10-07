@@ -23,6 +23,6 @@ describe("Header", () => {
   it("is a slim wordmark linking home", () => {
     render(<Header path="/" />);
     expect(screen.getByRole("link", { name: "Life Improver" })).toHaveAttribute("href", "#/");
-    expect(screen.queryByRole("heading")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1 })).toContainElement(screen.getByRole("link", { name: "Life Improver" }));
   });
 });

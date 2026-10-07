@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A Vite + React 18 single-page app. Version 2.0 is a weekly loop. The app suggests a focus subcategory and a practice. The user keeps them or swaps them. The user checks in once a week and sees the trend over time. The app installs as a PWA and updates itself.
+A Vite + React 18 single-page app. Version 2.0 is a weekly loop. The app suggests a focus subcategory and a practice. The user keeps them or swaps them. The user checks in once a week and sees the trend over time. The app installs as a PWA and applies updates at a safe moment (next route change or when the page is hidden).
 
 Screens use hash routes. These routes have tabs:
 
@@ -52,7 +52,7 @@ Four layers, top-to-bottom:
    Most functions are pure. `shareCard.js` and `downloadIcs` in `ics.js` call browser APIs.
 
 3. **Hooks (`src/hooks/`):** all persistence lives here, using `localStorage`:
-   - `usePersistentState(key, initial, validate?)`: generic `useState` mirror; swallows storage errors so private mode degrades to in-memory only. When `validate` returns false for the stored value, it uses `initial`.
+   - `usePersistentState(key, initial, sanitize?)`: generic `useState` mirror; swallows storage errors so private mode degrades to in-memory only. `sanitize(parsed)` returns a cleaned value (invalid entries dropped) or `undefined` (use `initial`); when the cleaned value differs from the stored one, the raw text is first copied to `${key}:bad` (once).
    - `useScores()` — 1–10 ratings keyed `` `${domain.id}-${subIndex}` ``. Exposes `get/set/clear/reset`, `domainAverage(i)`, `overallAverage()`, `lowestSubs()` (all scored subs sorted ascending), and `scoredCount`. Storage key: `life-improver:scores:v1`. (Self-Assessment's dashboard currently recomputes its averages/top/bottom inline rather than via these helpers, but they remain the hook's public API.)
    - `useQuickScores()`: one 1–10 quick score per domain, from onboarding. Exposes `quick`, `setQuick(domainId, value)`, and `reset()`.
    - `useFocus()`: this week's focus, or `null`. Exposes `focus`, `setFocus(focus)`, and `clearFocus()`.
@@ -81,7 +81,7 @@ Rules for storage:
 
 - Bump a key's version when its shape changes. Rename `:v1` to `:v2`, read the old key, and migrate its value in `storage.js`.
 - `runMigrations` runs once at startup from `main.jsx`. It is idempotent. It never deletes `life-improver:scores:v1`.
-- Validate stored values by shape. Add validators to `storage.js` and pass them to `usePersistentState`.
+- Sanitize stored values by shape. Add sanitizers to `storage.js` and pass them to `usePersistentState`.
 
 ## Conventions worth preserving
 

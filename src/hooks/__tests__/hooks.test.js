@@ -129,38 +129,79 @@ describe("useScores", () => {
   });
 });
 
-describe("shape validation", () => {
-  it("usePersistentState falls back to initial when validate rejects", () => {
+describe("sanitizing stored values", () => {
+  const validCheckin = {
+    id: "a", date: "2026-10-07", week: "2026-W41", domainId: 1, subIndex: 0,
+    practiceIndex: 0, practised: "yes", score: 6, note: "ok",
+  };
+
+  it("usePersistentState uses the sanitized value and backs up the raw text once", () => {
+    const sanitize = (v) => (isPlain(v) ? Object.fromEntries(Object.entries(v).filter(([, n]) => n > 0)) : undefined);
+    const isPlain = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
+    const raw = JSON.stringify({ a: 1, b: -1 });
+    localStorage.setItem("k", raw);
+    const { result } = renderHook(() => usePersistentState("k", {}, sanitize));
+    expect(result.current[0]).toEqual({ a: 1 });
+    expect(localStorage.getItem("k:bad")).toBe(raw);
+    // A later bad value does not overwrite the first backup.
+    localStorage.setItem("k", JSON.stringify({ c: -5 }));
+    renderHook(() => usePersistentState("k", {}, sanitize));
+    expect(localStorage.getItem("k:bad")).toBe(raw);
+  });
+
+  it("falls back to initial when sanitize returns undefined, and backs up", () => {
     localStorage.setItem("k", JSON.stringify([1]));
-    const { result } = renderHook(() => usePersistentState("k", {}, (v) => !Array.isArray(v)));
+    const { result } = renderHook(() => usePersistentState("k", {}, () => undefined));
     expect(result.current[0]).toEqual({});
+    expect(localStorage.getItem("k:bad")).toBe("[1]");
+  });
+
+  it("writes no backup when the value is already clean", () => {
     localStorage.setItem("k", JSON.stringify({ a: 1 }));
-    const again = renderHook(() => usePersistentState("k", {}, (v) => !Array.isArray(v)));
-    expect(again.result.current[0]).toEqual({ a: 1 });
+    renderHook(() => usePersistentState("k", {}, (v) => v));
+    expect(localStorage.getItem("k:bad")).toBeNull();
+  });
+
+  it("scores and quick drop only the bad entries", () => {
+    localStorage.setItem(KEYS.scores, JSON.stringify({ "1-0": 7, "1-1": 11, "1-2": 5.5, "1-3": "4" }));
+    localStorage.setItem(KEYS.quick, JSON.stringify({ 1: 4, 2: 0, 3: 42 }));
+    expect(renderHook(() => useScores()).result.current.scores).toEqual({ "1-0": 7 });
+    expect(renderHook(() => useQuickScores()).result.current.quick).toEqual({ 1: 4 });
+    expect(localStorage.getItem(`${KEYS.scores}:bad`)).not.toBeNull();
   });
 
   it("scores and quick ignore a stored value of the wrong shape", () => {
     localStorage.setItem(KEYS.scores, JSON.stringify([1, 2]));
-    localStorage.setItem(KEYS.quick, JSON.stringify({ 1: 42 }));
+    localStorage.setItem(KEYS.quick, JSON.stringify("x"));
     expect(renderHook(() => useScores()).result.current.scores).toEqual({});
     expect(renderHook(() => useQuickScores()).result.current.quick).toEqual({});
   });
 
-  it("focus accepts null or a numeric object and rejects junk", () => {
+  it("focus keeps a valid object, coerces skipped, and rejects junk", () => {
     localStorage.setItem(KEYS.focus, JSON.stringify("oops"));
     expect(renderHook(() => useFocus()).result.current.focus).toBeNull();
     localStorage.setItem(KEYS.focus, JSON.stringify({ domainId: "1", subIndex: 0, practiceIndex: 0 }));
     expect(renderHook(() => useFocus()).result.current.focus).toBeNull();
+    localStorage.setItem(KEYS.focus, JSON.stringify({ domainId: 1, subIndex: -1, practiceIndex: 0 }));
+    expect(renderHook(() => useFocus()).result.current.focus).toBeNull();
     const ok = { domainId: 1, subIndex: 0, practiceIndex: 2 };
     localStorage.setItem(KEYS.focus, JSON.stringify(ok));
-    expect(renderHook(() => useFocus()).result.current.focus).toEqual(ok);
+    expect(renderHook(() => useFocus()).result.current.focus).toEqual({ ...ok, skipped: [] });
+    localStorage.setItem(KEYS.focus, JSON.stringify({ ...ok, skipped: 3 }));
+    expect(renderHook(() => useFocus()).result.current.focus.skipped).toEqual([]);
+    localStorage.setItem(KEYS.focus, JSON.stringify({ ...ok, skipped: [1, "x", -2, 4.5, 6] }));
+    expect(renderHook(() => useFocus()).result.current.focus.skipped).toEqual([1, 6]);
   });
 
-  it("checkins must be a list of objects", () => {
+  it("checkins keep only valid entries", () => {
     localStorage.setItem(KEYS.checkins, JSON.stringify({ a: 1 }));
     expect(renderHook(() => useCheckins()).result.current.checkins).toEqual([]);
     localStorage.setItem(KEYS.checkins, JSON.stringify([1, 2]));
     expect(renderHook(() => useCheckins()).result.current.checkins).toEqual([]);
+    localStorage.setItem(KEYS.checkins, JSON.stringify([{ id: 1, date: 5 }]));
+    expect(renderHook(() => useCheckins()).result.current.checkins).toEqual([]);
+    localStorage.setItem(KEYS.checkins, JSON.stringify([validCheckin, null, {}]));
+    expect(renderHook(() => useCheckins()).result.current.checkins).toEqual([validCheckin]);
   });
 });
 

@@ -103,6 +103,33 @@ describe("Onboarding", () => {
     expect(screen.getByRole("heading", { name: FRAMEWORK[2].subs[1].name })).toBeInTheDocument();
   });
 
+  it("clears a hand-picked focus when a rating changes", async () => {
+    render(<Harness navigate={vi.fn()} />);
+    await toStep2();
+    [8, 7, 2, 6].forEach((v, i) => rate(FRAMEWORK[i].domain, v));
+    await userEvent.click(screen.getByRole("button", { name: "Next" }));
+    await userEvent.click(screen.getByRole("button", { name: "Choose another" }));
+    await userEvent.click(screen.getByRole("button", { name: new RegExp(FRAMEWORK[2].subs[1].name) }));
+    expect(screen.getByRole("heading", { name: FRAMEWORK[2].subs[1].name })).toBeInTheDocument();
+    // Back, change a rating, forward: the suggestion returns.
+    await userEvent.click(screen.getByRole("button", { name: "Back" }));
+    rate(FRAMEWORK[0].domain, 1);
+    await userEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(screen.getByRole("heading", { name: FRAMEWORK[0].subs[0].name })).toBeInTheDocument();
+  });
+
+  it("keeps a hand-picked focus when no rating changes", async () => {
+    render(<Harness navigate={vi.fn()} />);
+    await toStep2();
+    [8, 7, 2, 6].forEach((v, i) => rate(FRAMEWORK[i].domain, v));
+    await userEvent.click(screen.getByRole("button", { name: "Next" }));
+    await userEvent.click(screen.getByRole("button", { name: "Choose another" }));
+    await userEvent.click(screen.getByRole("button", { name: new RegExp(FRAMEWORK[2].subs[1].name) }));
+    await userEvent.click(screen.getByRole("button", { name: "Back" }));
+    await userEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(screen.getByRole("heading", { name: FRAMEWORK[2].subs[1].name })).toBeInTheDocument();
+  });
+
   it("offers a quiet route to the full assessment", async () => {
     const navigate = vi.fn();
     render(<Harness navigate={navigate} />);

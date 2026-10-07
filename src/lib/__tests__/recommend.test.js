@@ -162,3 +162,15 @@ describe("nextPractice", () => {
     }
   });
 });
+
+describe("nextPractice with a damaged skipped list", () => {
+  it.each([["a number", 3], ["a string", "1,2"], ["an object", { a: 1 }], ["null", null], ["undefined", undefined]])(
+    "does not throw when skipped is %s",
+    (_, skipped) => {
+      const focus = { domainId: 1, subIndex: 0, practiceIndex: 0, skipped };
+      const next = nextPractice(focus, fw, [], "2026-10-07");
+      expect(next.skipped).toEqual([0]);
+      expect(next.practiceIndex).toBe(1);
+    }
+  );
+});

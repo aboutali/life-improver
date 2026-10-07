@@ -38,6 +38,53 @@ describe("App", () => {
     expect(document.querySelector("main h2")).toHaveAttribute("tabindex", "-1");
   });
 
+  it("moves focus inside a frame, cancels it on cleanup, and falls back to <main>", async () => {
+    seed();
+    const frames = new Map();
+    let id = 0;
+    const raf = vi.spyOn(globalThis, "requestAnimationFrame").mockImplementation((cb) => {
+      frames.set(++id, cb);
+      return id;
+    });
+    const caf = vi.spyOn(globalThis, "cancelAnimationFrame").mockImplementation((n) => frames.delete(n));
+    try {
+      window.location.hash = "#/";
+      const { unmount } = render(<App />);
+      act(() => {
+        window.location.hash = "#/settings";
+      });
+      await waitFor(() => expect(frames.size).toBeGreaterThan(0));
+      expect(document.body).toHaveFocus(); // nothing moves until the frame runs
+      // With no heading on screen, focus lands on <main>.
+      document.querySelector("main h2").remove();
+      act(() => {
+        const due = [...frames.values()];
+        frames.clear();
+        due.forEach((cb) => cb());
+      });
+      expect(document.querySelector("main")).toHaveFocus();
+      expect(document.querySelector("main")).toHaveAttribute("tabindex", "-1");
+      // A pending frame is cancelled on unmount.
+      act(() => {
+        window.location.hash = "#/journey";
+      });
+      await waitFor(() => expect(frames.size).toBeGreaterThan(0));
+      unmount();
+      expect(frames.size).toBe(0);
+    } finally {
+      raf.mockRestore();
+      caf.mockRestore();
+    }
+  });
+
+  it("renders a single h1 holding the home link", () => {
+    seed();
+    render(<App />);
+    const h1 = screen.getByRole("heading", { level: 1 });
+    expect(h1).toHaveTextContent("Life Improver");
+    expect(h1.querySelector("a")).toHaveAttribute("href", "#/");
+  });
+
   it("treats an unknown hash as Today", async () => {
     seed();
     window.location.hash = "#/nowhere";

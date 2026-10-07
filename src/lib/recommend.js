@@ -82,7 +82,7 @@ export function suggestPractice({
 // practice) and the next index after it, wrapping, is chosen, so a swap always
 // changes the practice when the sub has more than one.
 export function nextPractice(focus, framework = FRAMEWORK, checkins = [], today) {
-  let skipped = [...(focus.skipped || [])];
+  let skipped = [...(Array.isArray(focus.skipped) ? focus.skipped : [])];
   if (!skipped.includes(focus.practiceIndex)) skipped.push(focus.practiceIndex);
 
   const sub = framework.find((d) => d.id === focus.domainId)?.subs[focus.subIndex];

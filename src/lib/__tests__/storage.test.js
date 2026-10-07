@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { KEYS, runMigrations, exportData, importData } from "../storage.js";
+import { KEYS, runMigrations, exportData, importData, isValidCheckin } from "../storage.js";
 
 const focus = { domainId: 1, subIndex: 0, practiceIndex: 3, startedAt: "2026-10-07", skipped: [1, 2] };
 const checkin = {
@@ -182,6 +182,7 @@ describe("importData", () => {
     ["quick with a sub-style key", { quick: { "1-0": 5 } }, "quick"],
     ["quick with a non-number", { quick: { 1: "5" } }, "quick"],
     ["focus of the wrong shape", { focus: { domainId: 1 } }, "focus"],
+    ["scores with a fractional value", { scores: { "1-0": 5.5 } }, "scores"],
     ["focus that is a string", { focus: "x" }, "focus"],
     ["checkins not a list", { checkins: {} }, "checkins"],
     ["a check-in with a bad practised value", { checkins: [{ ...checkin, practised: "maybe" }] }, "checkins"],
@@ -199,5 +200,46 @@ describe("importData", () => {
     expect(() => importData(input)).toThrow();
     expect(JSON.parse(localStorage.getItem(KEYS.scores))).toEqual({ "1-0": 2 });
     expect(localStorage.getItem(KEYS.checkins)).toBeNull();
+  });
+});
+
+describe("isValidCheckin", () => {
+  it("accepts a complete check-in", () => {
+    expect(isValidCheckin(checkin)).toBe(true);
+  });
+
+  it.each([
+    ["a non-object", null],
+    ["an empty object", {}],
+    ["a numeric id", { ...checkin, id: 1 }],
+    ["a bad date", { ...checkin, date: "2026-1-5" }],
+    ["a missing week", { ...checkin, week: undefined }],
+    ["a negative index", { ...checkin, subIndex: -1 }],
+    ["a fractional index", { ...checkin, practiceIndex: 1.5 }],
+    ["a bad practised value", { ...checkin, practised: "maybe" }],
+    ["a fractional score", { ...checkin, score: 5.5 }],
+    ["a missing note", { ...checkin, note: undefined }],
+  ])("rejects %s", (_, c) => {
+    expect(isValidCheckin(c)).toBe(false);
+  });
+});
+
+describe("damaged check-ins", () => {
+  it.each([[[{ id: 1, date: 5 }]], [[{}]], [[checkin, null]]])("import rejects %j", (list) => {
+    const input = good();
+    input.data.checkins = list;
+    expect(() => importData(input)).toThrow('"checkins"');
+  });
+
+  it("export keeps only valid entries, so the export re-imports", () => {
+    localStorage.setItem(KEYS.checkins, JSON.stringify([checkin, null, { id: 1, date: 5 }, { ...checkin, note: "x".repeat(900) }]));
+    localStorage.setItem(KEYS.scores, JSON.stringify({ "1-0": 6, "1-1": 99, nope: 5 }));
+    localStorage.setItem(KEYS.focus, JSON.stringify({ domainId: 1, subIndex: 0, practiceIndex: 2 }));
+    const out = exportData();
+    expect(out.data.checkins).toHaveLength(2);
+    expect(out.data.checkins[1].note).toHaveLength(500);
+    expect(out.data.scores).toEqual({ "1-0": 6 });
+    expect(out.data.focus).toEqual({ domainId: 1, subIndex: 0, practiceIndex: 2, skipped: [] });
+    expect(() => importData(JSON.parse(JSON.stringify(out)))).not.toThrow();
   });
 });

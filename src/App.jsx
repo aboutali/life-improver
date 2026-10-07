@@ -43,13 +43,18 @@ export default function App() {
     if (path === "/" && isNewcomer) go("/welcome", { replace: true, quiet: true });
   }, [path, isNewcomer, go]);
 
-  // After a route change, move focus to the new screen's heading. Not on first load.
+  // After a route change, move focus to the new screen's heading, or to
+  // <main> when there is none. Waits a frame so a redirect or an error screen
+  // has rendered first. Not on first load.
   useEffect(() => {
-    if (focusKey === 0) return;
-    const h2 = mainRef.current?.querySelector("h2");
-    if (!h2) return;
-    if (!h2.hasAttribute("tabindex")) h2.setAttribute("tabindex", "-1");
-    h2.focus({ preventScroll: true });
+    if (focusKey === 0) return undefined;
+    const frame = requestAnimationFrame(() => {
+      const target = mainRef.current?.querySelector("h2") ?? mainRef.current;
+      if (!target) return;
+      if (!target.hasAttribute("tabindex")) target.setAttribute("tabindex", "-1");
+      target.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(frame);
   }, [focusKey]);
 
   const shared = { scores, quick, focus, checkins, navigate };
@@ -92,7 +97,7 @@ export default function App() {
       <Header path={path} />
       <TabBar path={path} />
 
-      <main ref={mainRef} style={{ maxWidth: 960, margin: "0 auto", padding: "24px 24px 64px" }}>
+      <main ref={mainRef} tabIndex={-1} style={{ maxWidth: 960, margin: "0 auto", padding: "24px 24px 64px", outline: "none" }}>
         <div className="app-screen" style={{ maxWidth }}>
           <ErrorBoundary resetKey={path}>{screen}</ErrorBoundary>
         </div>

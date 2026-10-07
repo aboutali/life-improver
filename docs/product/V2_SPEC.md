@@ -66,7 +66,7 @@ All keys start with `life-improver:`. All values are JSON. `src/lib/storage.js` 
 }
 ```
 
-Hooks validate stored values by shape and fall back to the empty value when the shape is wrong: `usePersistentState(key, initial, validate?)`. Validators live in `storage.js`: scores and quick are plain objects of numbers 1..10; focus is `null` or an object with numeric `domainId`, `subIndex`, `practiceIndex`; check-ins are an array of objects.
+Hooks clean stored values and fall back to the empty value when nothing is usable: `usePersistentState(key, initial, sanitize?)`. `sanitize(parsed)` returns a cleaned value (invalid entries dropped) or `undefined` when nothing is usable. When the cleaned value differs from what was stored, the raw text is first copied to `${key}:bad` (only if that key does not exist yet). Sanitizers live in `storage.js`: scores and quick keep only entries with an integer 1..10; focus is kept when `domainId`, `subIndex`, `practiceIndex` are non-negative integers, with `skipped` coerced to a list of integers (otherwise `null`); check-ins keep only entries that pass `isValidCheckin` (id string, `YYYY-MM-DD` date, week string, non-negative integer indices, `practised` yes/some/no, integer score 1..10, string note capped at 500). `exportData` exports the sanitized values, so a person's own export always re-imports.
 
 A check-in also writes its `score` into `useScores` for the same sub. The full assessment stays in sync.
 
@@ -78,7 +78,7 @@ It writes `meta:v1` when missing. It is idempotent. It never deletes `scores:v1`
 ### Export and import (E1)
 
 - `exportData(storage)` returns `{ app: "life-improver", schema: 2, exportedAt, data: { scores, quick, focus, checkins } }`.
-- `importData(json, storage)` validates `app` and `schema`. It throws `Error` with a human message on bad input. Check-in `date` must match `YYYY-MM-DD`; notes are cut to 500 characters. It overwrites the four keys. If any write fails, it restores the previous values of all keys and throws "This device has no room for the file." The UI reloads the page after import.
+- `importData(json, storage)` validates `app` and `schema`. It throws `Error` with a human message on bad input. Check-ins must pass `isValidCheckin` (date `YYYY-MM-DD`); notes are cut to 500 characters. It overwrites the four keys. If any write fails, it restores the previous values of all keys and throws "This device has no room for the file." The UI reloads the page after import.
 
 ## 4. Library modules (pure, unit-tested)
 
@@ -168,7 +168,7 @@ Put pure logic in `src/lib/`. Components hold no business logic.
 
 ## 7. PWA (B3)
 
-- Add `vite-plugin-pwa`. Register the service worker from `main.jsx` with `registerSW({ immediate: true })` from `virtual:pwa-register` and `registerType: "autoUpdate"` (`injectRegister: false`), so a new version reloads the page by itself.
+- Add `vite-plugin-pwa`. Register the service worker from `main.jsx` with `registerSW({ immediate: true, onNeedRefresh })` from `virtual:pwa-register` and `registerType: "prompt"` (`injectRegister: false`). A new version installs and waits; `src/lib/updatePolicy.js` applies it (`updateSW(true)`, which reloads) only at a safe moment: on the next `hashchange`, or when `document.visibilityState` becomes `"hidden"`. Unsaved input is never lost to a reload.
 - Manifest: name "Life Improver", short_name "Life", theme `#2B6CB0`, background `#F5F5F5`, `display: standalone`, `start_url` and `scope` `/life-improver/`.
 - Icons: 192 and 512 PNG plus a maskable 512 PNG in `public/`. Generate them from an SVG.
 

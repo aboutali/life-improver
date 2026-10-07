@@ -38,29 +38,77 @@ export function runMigrations(storage = localStorage) {
   }
 }
 
-// Snapshot of the user's data, ready to save as a JSON file.
+// Snapshot of the user's data, ready to save as a JSON file. Values are the
+// sanitized ones the app itself uses, so an export always re-imports.
 export function exportData(storage = localStorage) {
   const data = {};
-  for (const name of DATA_KEYS) data[name] = read(storage, KEYS[name], DEFAULTS[name]);
+  for (const name of DATA_KEYS) {
+    const cleaned = SANITIZERS[name](read(storage, KEYS[name], DEFAULTS[name]));
+    data[name] = cleaned === undefined ? DEFAULTS[name] : cleaned;
+  }
   return { app: APP, schema: SCHEMA, exportedAt: new Date().toISOString(), data };
 }
 
 export const isObject = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
-export const isScore = (v) => typeof v === "number" && v >= 1 && v <= 10;
+export const isScore = (v) => Number.isInteger(v) && v >= 1 && v <= 10;
 const isIndex = (v) => Number.isInteger(v) && v >= 0;
 const isDate = (v) => typeof v === "string" && /^\d{4}-\d\d-\d\d$/.test(v);
 const MAX_NOTE = 500;
+const SUB_KEY = /^\d+-\d+$/;
+const DOMAIN_KEY = /^\d+$/;
 
-// Light shape checks for values read back from localStorage by the hooks.
-// Strict validation (below) is reserved for imports.
-export const isScoreMap = (v) => isObject(v) && Object.values(v).every(isScore);
-export const isFocusShape = (v) =>
-  v === null ||
-  (isObject(v) &&
-    Number.isFinite(v.domainId) &&
-    Number.isFinite(v.subIndex) &&
-    Number.isFinite(v.practiceIndex));
-export const isCheckinList = (v) => Array.isArray(v) && v.every(isObject);
+// One check-in, strictly: every field present and of the right kind.
+export function isValidCheckin(c) {
+  return (
+    isObject(c) &&
+    typeof c.id === "string" &&
+    isDate(c.date) &&
+    typeof c.week === "string" &&
+    isIndex(c.domainId) &&
+    isIndex(c.subIndex) &&
+    isIndex(c.practiceIndex) &&
+    ["yes", "some", "no"].includes(c.practised) &&
+    isScore(c.score) &&
+    typeof c.note === "string"
+  );
+}
+
+// Sanitizers clean a parsed value read back from localStorage: they drop what
+// is invalid and keep the rest. They return undefined when nothing is usable.
+// Score maps: keep entries with a matching key and an integer 1..10.
+const sanitizeScoreMap = (keyPattern) => (v) => {
+  if (!isObject(v)) return undefined;
+  const out = {};
+  for (const [k, val] of Object.entries(v)) {
+    if (keyPattern.test(k) && isScore(val)) out[k] = val;
+  }
+  return out;
+};
+export const sanitizeScores = sanitizeScoreMap(SUB_KEY);
+export const sanitizeQuick = sanitizeScoreMap(DOMAIN_KEY);
+
+// Focus: keep when the three indices are valid, coercing skipped to a list of
+// indices. Anything else is no focus (null).
+export function sanitizeFocus(v) {
+  if (!isObject(v) || !isIndex(v.domainId) || !isIndex(v.subIndex) || !isIndex(v.practiceIndex)) {
+    return null;
+  }
+  const skipped = Array.isArray(v.skipped) ? v.skipped.filter(isIndex) : [];
+  return { ...v, skipped };
+}
+
+// Check-ins: keep the valid entries, with notes capped.
+export function sanitizeCheckins(v) {
+  if (!Array.isArray(v)) return undefined;
+  return v.filter(isValidCheckin).map((c) => ({ ...c, note: c.note.slice(0, MAX_NOTE) }));
+}
+
+const SANITIZERS = {
+  scores: sanitizeScores,
+  quick: sanitizeQuick,
+  focus: sanitizeFocus,
+  checkins: sanitizeCheckins,
+};
 
 // Each validator returns an error fragment, or null when the value is fine.
 function checkScoreMap(map, keyPattern) {
@@ -73,34 +121,12 @@ function checkScoreMap(map, keyPattern) {
 }
 
 function checkFocus(f) {
-  if (f === null) return null;
-  const ok =
-    isObject(f) &&
-    isIndex(f.domainId) &&
-    isIndex(f.subIndex) &&
-    isIndex(f.practiceIndex) &&
-    typeof f.startedAt === "string" &&
-    Array.isArray(f.skipped) &&
-    f.skipped.every(isIndex);
-  return ok ? null : "is not a valid focus";
+  return f === null || sanitizeFocus(f) !== null ? null : "is not a valid focus";
 }
 
 function checkCheckins(list) {
   if (!Array.isArray(list)) return "must be a list";
-  const ok = list.every(
-    (c) =>
-      isObject(c) &&
-      typeof c.id === "string" &&
-      isDate(c.date) &&
-      typeof c.week === "string" &&
-      isIndex(c.domainId) &&
-      isIndex(c.subIndex) &&
-      isIndex(c.practiceIndex) &&
-      ["yes", "some", "no"].includes(c.practised) &&
-      isScore(c.score) &&
-      typeof c.note === "string"
-  );
-  return ok ? null : "contains an invalid check-in";
+  return list.every(isValidCheckin) ? null : "contains an invalid check-in";
 }
 
 // Validate an export (JSON text or an already-parsed object) and overwrite the
@@ -131,8 +157,8 @@ export function importData(json, storage = localStorage) {
     data[name] = parsed.data[name] === undefined ? DEFAULTS[name] : parsed.data[name];
   }
   const problems = {
-    scores: checkScoreMap(data.scores, /^\d+-\d+$/),
-    quick: checkScoreMap(data.quick, /^\d+$/),
+    scores: checkScoreMap(data.scores, SUB_KEY),
+    quick: checkScoreMap(data.quick, DOMAIN_KEY),
     focus: checkFocus(data.focus),
     checkins: checkCheckins(data.checkins),
   };
@@ -140,8 +166,9 @@ export function importData(json, storage = localStorage) {
     if (problems[name]) throw new Error(`The "${name}" data ${problems[name]}.`);
   }
 
-  // Notes are capped, as they are when written through the app.
-  data.checkins = data.checkins.map((c) => ({ ...c, note: c.note.slice(0, MAX_NOTE) }));
+  // Notes are capped and skips normalized, as they are when written through the app.
+  data.checkins = sanitizeCheckins(data.checkins);
+  data.focus = sanitizeFocus(data.focus);
 
   // Snapshot what is there, so a failed write leaves the old data intact.
   const names = [...DATA_KEYS.map((n) => KEYS[n]), KEYS.meta];

@@ -53,7 +53,15 @@ export default function Onboarding({ scores, quick, focus, checkins, navigate })
   // it, so a pointer or key interaction also records the value it rests on.
   const record = (id, raw) => {
     const val = Number(raw);
-    setDraft((p) => (p[id] ? p : { ...p, [id]: val }));
+    if (!draft[id]) {
+      setDraft((p) => (p[id] ? p : { ...p, [id]: val }));
+      setPick(null);
+    }
+  };
+  // Any rating change makes a hand-picked focus stale: the suggestion returns.
+  const rateDomain = (id, raw) => {
+    setDraft((p) => ({ ...p, [id]: Number(raw) }));
+    setPick(null);
   };
   const go = (n) => { setPicking(false); setStep(n); };
 
@@ -131,7 +139,7 @@ export default function Onboarding({ scores, quick, focus, checkins, navigate })
                       aria-describedby={`${inputId}-d`}
                       aria-valuetext={v ? `${v} out of 10` : "not rated"}
                       className={`wl-range${v ? "" : " unset"}`}
-                      onChange={(e) => setDraft((p) => ({ ...p, [d.id]: Number(e.target.value) }))}
+                      onChange={(e) => rateDomain(d.id, e.target.value)}
                       onPointerUp={(e) => record(d.id, e.currentTarget.value)}
                       onClick={(e) => record(d.id, e.currentTarget.value)}
                       onKeyUp={(e) => {
