@@ -1,0 +1,138 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import Settings from "../Settings.jsx";
+import { KEYS } from "../../lib/storage.js";
+
+function makeProps() {
+  return {
+    scores: { reset: vi.fn() },
+    quick: { reset: vi.fn() },
+    focus: { clearFocus: vi.fn() },
+    checkins: { reset: vi.fn() },
+    navigate: vi.fn(),
+  };
+}
+
+const realLocation = window.location;
+let reload;
+
+beforeEach(() => {
+  reload = vi.fn();
+  Object.defineProperty(window, "location", {
+    configurable: true,
+    value: { ...realLocation, reload },
+  });
+});
+
+afterEach(() => {
+  Object.defineProperty(window, "location", { configurable: true, value: realLocation });
+  vi.restoreAllMocks();
+});
+
+describe("Settings", () => {
+  it("renders the sections and copy", () => {
+    render(<Settings {...makeProps()} />);
+    expect(screen.getByRole("heading", { level: 2, name: /settings/i })).toBeInTheDocument();
+    for (const name of ["Your data", "Start over", "Privacy", "Not medical advice", "Install the app"]) {
+      expect(screen.getByRole("heading", { level: 3, name })).toBeInTheDocument();
+    }
+    expect(screen.getByText(/reflection, not medical or psychological care/i)).toBeInTheDocument();
+    expect(screen.getByText(/no accounts, no server, no tracking/i)).toBeInTheDocument();
+    expect(screen.getByText(/Add to Home Screen/)).toBeInTheDocument();
+  });
+
+  it("keeps the restore control a real, focusable file input beside muted help text", () => {
+    render(<Settings {...makeProps()} />);
+    const input = screen.getByLabelText(/restore from a copy/i);
+    expect(input).toHaveAttribute("type", "file");
+    expect(input).toHaveAccessibleDescription("(.json file)");
+    input.focus();
+    expect(input).toHaveFocus();
+  });
+
+  it("exports a dated JSON file", async () => {
+    const user = userEvent.setup();
+    URL.createObjectURL = vi.fn(() => "blob:test");
+    URL.revokeObjectURL = vi.fn();
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    render(<Settings {...makeProps()} />);
+    await user.click(screen.getByRole("button", { name: "Download a copy" }));
+    expect(click).toHaveBeenCalledTimes(1);
+    expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
+  });
+
+  it("imports a file after confirmation and reloads", async () => {
+    const user = userEvent.setup();
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+    render(<Settings {...makeProps()} />);
+    const payload = {
+      app: "life-improver",
+      schema: 2,
+      exportedAt: "2026-10-07T10:00:00.000Z",
+      data: { scores: { "1-0": 4 }, quick: { 1: 6 }, focus: null, checkins: [] },
+    };
+    const file = new File([JSON.stringify(payload)], "backup.json", { type: "application/json" });
+    await user.upload(screen.getByLabelText(/restore from a copy/i), file);
+    await waitFor(() => expect(reload).toHaveBeenCalled());
+    expect(confirm).toHaveBeenCalledWith("Replace all data on this device with the imported file?");
+    expect(JSON.parse(localStorage.getItem(KEYS.scores))).toEqual({ "1-0": 4 });
+  });
+
+  it("shows an inline error for a bad file and does not reload", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    render(<Settings {...makeProps()} />);
+    const file = new File(["not json"], "bad.json", { type: "application/json" });
+    await user.upload(screen.getByLabelText(/restore from a copy/i), file);
+    expect(await screen.findByRole("alert")).toHaveTextContent(/not valid JSON/i);
+    expect(reload).not.toHaveBeenCalled();
+  });
+
+  it("leaves data alone when the import is not confirmed", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(window, "confirm").mockReturnValue(false);
+    render(<Settings {...makeProps()} />);
+    const file = new File(["{}"], "x.json", { type: "application/json" });
+    await user.upload(screen.getByLabelText(/restore from a copy/i), file);
+    await waitFor(() => expect(window.confirm).toHaveBeenCalled());
+    expect(reload).not.toHaveBeenCalled();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("resets everything after confirm and goes to the welcome screen", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const props = makeProps();
+    render(<Settings {...props} />);
+    await user.click(screen.getByRole("button", { name: /reset all data/i }));
+    expect(props.scores.reset).toHaveBeenCalled();
+    expect(props.quick.reset).toHaveBeenCalled();
+    expect(props.focus.clearFocus).toHaveBeenCalled();
+    expect(props.checkins.reset).toHaveBeenCalled();
+    expect(props.navigate).toHaveBeenCalledWith("/welcome");
+  });
+
+  it("does nothing when the reset is declined", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(window, "confirm").mockReturnValue(false);
+    const props = makeProps();
+    render(<Settings {...props} />);
+    await user.click(screen.getByRole("button", { name: /reset all data/i }));
+    expect(props.scores.reset).not.toHaveBeenCalled();
+    expect(props.navigate).not.toHaveBeenCalled();
+  });
+
+  it("shows an Install button once beforeinstallprompt has fired", async () => {
+    const user = userEvent.setup();
+    render(<Settings {...makeProps()} />);
+    const ev = new Event("beforeinstallprompt", { cancelable: true });
+    ev.prompt = vi.fn().mockResolvedValue(undefined);
+    ev.userChoice = Promise.resolve({ outcome: "accepted" });
+    window.dispatchEvent(ev);
+    const btn = await screen.findByRole("button", { name: "Install" });
+    await user.click(btn);
+    expect(ev.prompt).toHaveBeenCalled();
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Install" })).not.toBeInTheDocument());
+  });
+});
