@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { FRAMEWORK, TOTAL_SUBS } from "../data/framework.js";
+import ShareButton from "./ShareButton.jsx";
 
 const tierColor = (sc) =>
   sc <= 2 ? "#C53030" : sc <= 4 ? "#DD6B20" : sc <= 6 ? "#D69E2E" : sc <= 8 ? "#38A169" : "#2B6CB0";
@@ -233,7 +234,7 @@ function Dashboard({ scores }) {
           </div>
         )}
       </div>
-      <p style={{ textAlign: "center", fontSize: 11, color: "#999", marginBottom: 24, marginTop: 4, letterSpacing: .5 }}>↑ Screenshot to share</p>
+      <ShareButton domains={domains} overall={avg} />
 
       <div className="cd">
         <p style={{ fontWeight: 600, fontSize: 11, color: "#888", marginBottom: 14, textTransform: "uppercase", letterSpacing: .5 }}>Distribution</p>
