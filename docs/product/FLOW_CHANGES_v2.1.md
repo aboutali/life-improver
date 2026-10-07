@@ -66,3 +66,25 @@ Problem: the picker shows one domain (S03) or only scored subs (S14). Practices 
 
 - Swap counter and "maybe a different subject" after 5 swaps. F1 and R6 cover the need.
 - Hiding Today and Journey tabs for newcomers. O5 covers the need with less surprise.
+
+## Round 2 polish (from the second test pass)
+
+| ID | Change |
+|---|---|
+| P1 | The season review counts distinct ISO weeks with a check-in, not check-ins. |
+| P2 | Adopting a practice in the sub already in focus keeps `startedAt` and `reviewedAt`. |
+| P3 | Season buttons read "Stay with <Sub>" and "Choose a new focus". |
+| P4 | The welcome-back card adds "Start smaller", which swaps the practice and hides the card. |
+| P5 | Practices scrolls the active domain and sub pills into view. A manual pill choice updates the hash with a quiet replace. |
+| P6 | "Practise this week" becomes a quiet text button. Practices shows a link row "About the framework · Sources". |
+| P7 | The reward reads "Next check-in: Sun 18 Oct". It skips a Sunday that is fewer than 3 days away. |
+| P8 | A single-point sparkline is replaced by "Your line starts here." |
+| P9 | An early check-in (before it opens) shows "You started recently. Check in early only if you like." |
+| P10 | The "already checked in" note has a "Back to Today" link. |
+| P11 | "Show earlier weeks" toggles to "Show fewer weeks". |
+| P12 | Welcome reads "Restore from a saved copy". A wrong file adds "Use the .json file from Settings, Download a copy." |
+| P13 | On step 3 the picker heading scrolls into view, and the suggestion's buttons hide while the picker is open. |
+| P14 | The newcomer banner hides on Check-in and Journey, whose empty states already lead to the welcome. The check-in empty state reads "There is nothing to check in on yet. A one-minute welcome sets your first focus." |
+| P15 | The blocked-storage banner shows no download button while no data exists. |
+
+Not changed: swap counter, accordion memory, details of damaged data, a fifth "More" tab (P6 covers it).
