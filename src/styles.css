@@ -33,6 +33,7 @@ body {
   cursor: pointer; border: none; border-bottom: 3px solid transparent;
   background: none; font-family: inherit; transition: all .15s;
   white-space: nowrap; flex-shrink: 0;
+  display: inline-flex; align-items: center; text-decoration: none;
 }
 .ti:hover { color: #333; }
 .ti.a { color: #2B6CB0; border-bottom-color: #2B6CB0; }
@@ -66,9 +67,6 @@ body {
 }
 .ir:last-child { border-bottom: none; }
 
-.bbg { height: 8px; background: #EBEBEB; flex: 1; overflow: hidden; min-width: 0; }
-.bf { height: 100%; background: #2B6CB0; transition: width .3s; }
-
 .sh { overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
 .sh::-webkit-scrollbar { display: none; }
 
@@ -99,6 +97,33 @@ body {
   .cd { padding: 16px; }
   .oh { padding: 14px 16px; }
   .ob { padding: 0 16px 16px; }
-  .ti { padding: 10px 14px; font-size: 13px; }
+  .ti { padding: 10px 14px; font-size: 13px; min-height: 44px; }
   .ir { padding: 12px 12px; }
 }
+
+:focus-visible { outline: 2px solid #2B6CB0; outline-offset: 2px; }
+
+@media (pointer: coarse) {
+  .btn { min-height: 44px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition: none !important;
+    animation: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* === v2: Today === */
+
+/* === v2: Onboarding === */
+
+/* === v2: CheckIn === */
+
+/* === v2: Journey === */
+
+/* === v2: Settings === */
+
+/* === v2: Share === */
+

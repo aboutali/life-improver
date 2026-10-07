@@ -1,6 +1,24 @@
 import { FRAMEWORK, TOTAL_SUBS, TOTAL_IDEAS } from "../data/framework.js";
 
-export default function Header() {
+export default function Header({ path }) {
+  if (path !== "/") {
+    return (
+      <>
+        <div className="bl" />
+        <div style={{ background: "#fff", borderBottom: "1px solid #D5D5D5" }}>
+          <div style={{ maxWidth: 960, margin: "0 auto", padding: "0 24px", minHeight: 44, display: "flex", alignItems: "center" }}>
+            <a
+              href="#/"
+              className="sf"
+              style={{ fontSize: 18, fontWeight: 400, color: "#1A1A1A", textDecoration: "none", display: "inline-flex", alignItems: "center", minHeight: 44 }}
+            >
+              Life Improver
+            </a>
+          </div>
+        </div>
+      </>
+    );
+  }
   return (
     <>
       <div className="bl" />
