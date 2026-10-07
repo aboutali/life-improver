@@ -102,3 +102,24 @@ export function nextPractice(focus, framework = FRAMEWORK, checkins = [], today)
   });
   return { ...focus, practiceIndex, skipped };
 }
+
+// Build a new Focus. Every screen that plants a focus uses this, so the
+// shape stays one thing. `origin` says how the focus was chosen:
+// "suggested" (the app's pick), "picked" (chosen from a list) or
+// "practice" (adopted from the practice catalogue).
+// Pass practiceIndex to adopt a specific practice; else one is suggested.
+export function makeFocus({
+  domainId,
+  subIndex,
+  practiceIndex,
+  origin = "suggested",
+  today,
+  checkins = [],
+  framework = FRAMEWORK,
+}) {
+  const index =
+    typeof practiceIndex === "number"
+      ? practiceIndex
+      : suggestPractice({ framework, domainId, subIndex, checkins, skipped: [], today }).practiceIndex;
+  return { domainId, subIndex, practiceIndex: index, startedAt: today, skipped: [], origin };
+}

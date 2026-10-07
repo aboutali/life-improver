@@ -174,3 +174,17 @@ describe("nextPractice with a damaged skipped list", () => {
     }
   );
 });
+
+import { makeFocus } from "../recommend.js";
+
+describe("makeFocus", () => {
+  it("adopts a given practice and records the origin", () => {
+    const f = makeFocus({ domainId: 1, subIndex: 2, practiceIndex: 5, origin: "practice", today: "2026-10-07" });
+    expect(f).toEqual({ domainId: 1, subIndex: 2, practiceIndex: 5, startedAt: "2026-10-07", skipped: [], origin: "practice" });
+  });
+  it("suggests a practice when none is given", () => {
+    const f = makeFocus({ domainId: 1, subIndex: 0, today: "2026-10-07" });
+    expect(f.practiceIndex).toBe(0);
+    expect(f.origin).toBe("suggested");
+  });
+});
