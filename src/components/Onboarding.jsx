@@ -16,6 +16,8 @@ const firstSentence = (text) => {
 
 const SLIDER_KEYS = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End", "PageUp", "PageDown"];
 
+const RESTORE_HINT = "Use the .json file from Settings, Download a copy.";
+
 const STEP_PATHS = ["/welcome", "/welcome/rate", "/welcome/focus"];
 
 function readText(file) {
@@ -42,6 +44,7 @@ export default function Onboarding({ scores, quick, focus, checkins, navigate, p
   const mounted = useRef(false);
   const chooseRef = useRef(null);
   const pickerWasOpen = useRef(false);
+  const pickerRef = useRef(null);
   const today = useToday();
 
   // Move focus to the new step's heading so screen readers follow along.
@@ -55,6 +58,11 @@ export default function Onboarding({ scores, quick, focus, checkins, navigate, p
   useEffect(() => {
     if (picking) {
       pickerWasOpen.current = true;
+      // The list opens below the suggestion: bring its heading to the top.
+      const heading = pickerRef.current?.querySelector("h3");
+      if (heading && typeof heading.scrollIntoView === "function") {
+        heading.scrollIntoView({ block: "start" });
+      }
     } else if (pickerWasOpen.current) {
       pickerWasOpen.current = false;
       chooseRef.current?.focus();
@@ -131,7 +139,8 @@ export default function Onboarding({ scores, quick, focus, checkins, navigate, p
       const { checkins: restored } = importData(await readText(file));
       finishRestore(restored.length);
     } catch (err) {
-      setRestoreError(err && err.message ? err.message : "This file could not be restored.");
+      const msg = err && err.message ? err.message : "This file could not be restored.";
+      setRestoreError(`${msg} ${RESTORE_HINT}`);
     } finally {
       input.value = "";
     }
@@ -156,7 +165,7 @@ export default function Onboarding({ scores, quick, focus, checkins, navigate, p
           </div>
           <p className="wl-restore">
             <label className="wl-link wl-file">
-              I have a saved copy
+              Restore from a saved copy
               <input className="sr-only" type="file" accept=".json,application/json" onChange={onRestore} />
             </label>
           </p>
@@ -237,11 +246,12 @@ export default function Onboarding({ scores, quick, focus, checkins, navigate, p
             >
               Choose another
             </button>
-            <button type="button" className="btn btn-primary btn-tap" onClick={plant}>
+            <button type="button" className="btn btn-primary btn-tap" hidden={picking} onClick={plant}>
               Plant this seed
             </button>
           </div>
           {picking && (
+            <div ref={pickerRef}>
             <FocusPicker
               scores={scores}
               quickScores={draft}
@@ -249,6 +259,7 @@ export default function Onboarding({ scores, quick, focus, checkins, navigate, p
               onPick={(domainId, subIndex) => { setPick({ domainId, subIndex }); setPicking(false); }}
               onClose={() => setPicking(false)}
             />
+            </div>
           )}
         </section>
       )}

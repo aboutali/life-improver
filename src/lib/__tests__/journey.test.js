@@ -4,6 +4,7 @@ import {
   isNewcomer,
   mondayOfWeek,
   nextCheckinDate,
+  nextCheckinLabel,
   weekdayName,
   weekHeading,
   weeklySeriesFor,
@@ -26,7 +27,11 @@ describe("nextCheckinDate", () => {
   it("is the next Sunday after a weekday", () => {
     expect(nextCheckinDate("2026-10-07")).toBe("2026-10-11"); // Wednesday
     expect(nextCheckinDate("2026-10-05")).toBe("2026-10-11"); // Monday
-    expect(nextCheckinDate("2026-10-10")).toBe("2026-10-11"); // Saturday
+    expect(nextCheckinDate("2026-10-08")).toBe("2026-10-11"); // Thursday: exactly 3 days
+  });
+  it("skips a Sunday that is fewer than 3 days away", () => {
+    expect(nextCheckinDate("2026-10-10")).toBe("2026-10-18"); // Saturday
+    expect(nextCheckinDate("2026-10-09")).toBe("2026-10-18"); // Friday
   });
   it("is the following Sunday when today is Sunday", () => {
     expect(nextCheckinDate("2026-10-11")).toBe("2026-10-18");
@@ -37,6 +42,14 @@ describe("nextCheckinDate", () => {
   });
   it("names the weekday", () => {
     expect(weekdayName(nextCheckinDate("2026-10-07"))).toBe("Sunday");
+  });
+});
+
+describe("nextCheckinLabel", () => {
+  it("reads weekday, day and month", () => {
+    expect(nextCheckinLabel("2026-10-07")).toBe("Sun 11 Oct");
+    expect(nextCheckinLabel("2026-10-10")).toBe("Sun 18 Oct");
+    expect(nextCheckinLabel("2026-12-30")).toBe("Sun 3 Jan");
   });
 });
 

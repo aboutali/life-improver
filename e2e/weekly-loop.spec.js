@@ -81,7 +81,10 @@ test("S10: checks in 4 days after planting and keeps the practice", async ({ pag
   await expect(page.getByRole("heading", { name: "Check-in saved" })).toBeVisible();
   await expect(page.getByText("A first mark on the page")).toBeVisible();
   // R3: the reward says when the next check-in is.
-  await expect(page.getByText("Next check-in: Sunday")).toBeVisible();
+  await expect(page.getByText("Next check-in: Sun 18 Oct")).toBeVisible();
+  // A single point is not drawn as a lone dot.
+  await expect(page.getByText("Your line starts here.")).toBeVisible();
+  await expect(page.locator(".ci-reward svg")).toHaveCount(0);
   await shot(page, testInfo, "S10", "4-reward");
   await page.getByRole("button", { name: "Keep this practice" }).click();
   await expect(page).toHaveURL(/#\/$/);
@@ -152,6 +155,7 @@ test("S12: checks in twice in one week", async ({ page }, testInfo) => {
   await moveTo(page, at("2026-10-07T20:00:00"));
   await go(page, "/checkin");
   await expect(page.getByText("You already checked in this week. A new entry adds to it.")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Back to Today" })).toBeVisible();
   await expect(page.getByText("Last time: 5")).toBeVisible();
   await shot(page, testInfo, "S12", "1-second-form");
   await fillCheckin(page, { practised: "Some", score: 7, note: "Second thoughts after a good evening." });
@@ -159,9 +163,9 @@ test("S12: checks in twice in one week", async ({ page }, testInfo) => {
   await expect(page.getByRole("heading", { name: "Check-in saved" })).toBeVisible();
   await shot(page, testInfo, "S12", "2-second-reward");
   await page.getByRole("button", { name: "Keep this practice" }).click();
-  // The second entry is the 4th check-in on this sub, so the season card shows
-  // although only 3 distinct weeks have passed.
-  const seasonLine = await page.locator("#season-line").innerText();
+  // P1: the second entry is the 4th check-in on this sub but only the 3rd
+  // distinct week, so the season review does not show yet.
+  await expect(page.locator("#season-line")).toHaveCount(0);
   await shot(page, testInfo, "S12", "3-today-after-two");
   await go(page, "/journey");
   await shot(page, testInfo, "S12", "4-journey");
@@ -178,9 +182,6 @@ test("S12: checks in twice in one week", async ({ page }, testInfo) => {
   await expect(rows.locator("svg[role=img]")).toHaveAttribute("aria-label", /moved from 3 on Sep 20 to 7 on Oct 7/);
   const dates = await page.locator(".jr-log .jr-log-head span:first-child").allInnerTexts();
   expect(dates.filter((d) => d === "Oct 7, 2026")).toHaveLength(2);
-  if (/^Four weeks/.test(seasonLine)) {
-    friction(testInfo, "S12: after two check-ins in one week the Today season card says 'Four weeks with Sleep & Recovery' although Journey says '3 weeks active'. The season counts check-ins, not weeks (src/lib/rhythm.js seasonCount), so a same-week correction brings the review forward by a week. Proposed: count distinct ISO weeks in seasonCount.");
-  }
   expectNoErrors();
 });
 
@@ -238,17 +239,16 @@ test("S14: four weeks on one sub with rising scores", async ({ page }, testInfo)
   // R6: the app now asks whether to stay or move on.
   const card = page.getByRole("region", { name: /Four weeks with/ });
   await expect(card).toContainText("Four weeks with Sleep & Recovery. Stay for another season, or choose a new focus?");
-  await expect(card.getByRole("button", { name: "Stay" })).toBeVisible();
+  await expect(card.getByRole("button", { name: "Stay with Sleep & Recovery" })).toBeVisible();
   await expect(page.locator("#fc-title")).toHaveText("Sleep & Recovery");
-  // "Choose" opens the two-part picker: what could the user move on to?
-  await card.getByRole("button", { name: "Choose", exact: true }).click();
+  // "Choose a new focus" opens the two-part picker: what could the user move on to?
+  await card.getByRole("button", { name: "Choose a new focus", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Choose where to begin" })).toBeVisible();
   await shot(page, testInfo, "S14", "3-picker");
   const suggested = page.getByRole("region", { name: "Suggested" });
   expect(await suggested.locator(".fp-opt").count()).toBeGreaterThan(1);
   await expect(suggested.locator(".fp-opt[aria-current=true]")).toContainText("Sleep & Recovery");
   await expect(page.getByRole("region", { name: "All areas" }).locator(".fp-group")).toHaveCount(7);
-  friction(testInfo, "S14: the season card buttons read 'Stay' and 'Choose'. 'Choose' has no object, and the card sits above the focus card right after a check-in, so a first-time reader may not know what they stay on or choose. Proposed: 'Stay with Sleep & Recovery' and 'Choose a new focus'.");
   expectNoErrors();
 });
 
@@ -392,13 +392,11 @@ test("S18: opens the calendar link #/checkin after already checking in", async (
   // The user is not stopped: a new entry can still be saved.
   await expect(page.getByRole("button", { name: "Save check-in" })).toBeDisabled();
   await expect(page.getByRole("radio", { name: "Yes", exact: true })).toBeVisible();
-  // There is no direct link back to Today or to the earlier entry in this view.
-  const links = await page.locator("main").getByRole("link").count();
-  const buttons = await page.locator("main").getByRole("button").allInnerTexts();
-  expect(links).toBe(0);
-  expect(buttons).toEqual(["Save check-in"]);
-  const color = await page.getByText("You already checked in this week").evaluate((el) => getComputedStyle(el).color);
-  friction(testInfo, `S18: the notice 'You already checked in this week. A new entry adds to it.' is a small grey line (${color}, 13px) between the practice card and the form. It does not say when or what was rated, and the page has no 'Back to Today' action, only a disabled Save button, so a user who opened the reminder out of habit must leave via the tab bar.`);
+  // Fixed in v2.1 (P10): a "Back to Today" link leads out of the form.
+  const back = page.locator("main").getByRole("link", { name: "Back to Today" });
+  await expect(back).toBeVisible();
+  await back.click();
+  await expect(page).toHaveURL(/#\/$/);
   expectNoErrors();
 });
 
@@ -429,7 +427,8 @@ test("S19: eight weeks of data across two subs stays readable", async ({ page },
   await expect(page.locator(".jr-log")).toHaveCount(6);
   const logs = await page.locator(".jr-log .jr-log-head span:first-child").allInnerTexts();
   expect(logs[0]).toBe("Nov 1, 2026"); // newest first
-  const more = page.getByRole("button", { name: "Show earlier weeks" });
+  const more = page.locator(".jr-more");
+  await expect(more).toHaveText("Show earlier weeks");
   await expect(more).toHaveAttribute("aria-expanded", "false");
   await more.scrollIntoViewIfNeeded();
   await shot(page, testInfo, "S19", "2-journey-collapsed");
@@ -437,6 +436,7 @@ test("S19: eight weeks of data across two subs stays readable", async ({ page },
   await expect(page.locator(".jr-log")).toHaveCount(8);
   await expect(headings).toHaveCount(8);
   await expect(more).toHaveAttribute("aria-expanded", "true");
+  await expect(more).toHaveText("Show fewer weeks");
   const subs = await page.locator(".jr-log .jr-log-head span:nth-child(2)").allInnerTexts();
   expect(new Set(subs).size).toBe(2);
   await page.locator(".jr-log").last().scrollIntoViewIfNeeded();
@@ -474,7 +474,7 @@ test("S40: season review, the user chooses Stay", async ({ page }, testInfo) => 
   await expect(card).toContainText("Four weeks with Sleep & Recovery. Stay for another season, or choose a new focus?");
   await shot(page, testInfo, "S40", "1-season-card");
   expect((await readStore(page, "focus")).reviewedAt).toBeUndefined();
-  await card.getByRole("button", { name: "Stay" }).click();
+  await card.getByRole("button", { name: "Stay with Sleep & Recovery" }).click();
   await expect(card).toHaveCount(0);
   const focus = await readStore(page, "focus");
   expect(focus).toMatchObject({ reviewedAt: "2026-10-07", startedAt: "2026-09-06", domainId: 1, subIndex: 2, practiceIndex: 0 });
@@ -503,7 +503,7 @@ test("S41: season review, the user chooses a new focus", async ({ page }, testIn
   await seed(page, SEASON);
   await go(page, "/");
   const card = page.getByRole("region", { name: /Four weeks with/ });
-  await card.getByRole("button", { name: "Choose", exact: true }).click();
+  await card.getByRole("button", { name: "Choose a new focus", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Choose where to begin" })).toBeVisible();
   await shot(page, testInfo, "S41", "1-picker");
   // Choosing opens the picker but decides nothing yet.
@@ -513,7 +513,7 @@ test("S41: season review, the user chooses a new focus", async ({ page }, testIn
   await expect(card).toBeVisible(); // still asked next time
   await expect(page.locator("#fc-title")).toHaveText("Sleep & Recovery");
   // Now actually move on, to the lowest quick-rated domain in Suggested.
-  await card.getByRole("button", { name: "Choose", exact: true }).click();
+  await card.getByRole("button", { name: "Choose a new focus", exact: true }).click();
   const target = subName(5, 0);
   await page.getByRole("region", { name: "Suggested" }).getByRole("button", { name: new RegExp(target) }).click();
   const focus = await readStore(page, "focus");
@@ -641,7 +641,7 @@ test("S46: checks in on a Saturday and is told when the next one is", async ({ p
   await fillCheckin(page, { practised: "Yes", score: 6 });
   await saveCheckin(page);
   await expect(page.getByRole("heading", { name: "Check-in saved" })).toBeVisible();
-  await expect(page.getByText("Next check-in: Sunday")).toBeVisible();
+  await expect(page.getByText("Next check-in: Sun 18 Oct")).toBeVisible();
   await shot(page, testInfo, "S46", "1-reward");
   friction(testInfo, "S46: checking in on a Saturday, the reward says 'Next check-in: Sunday', which is tomorrow. A weekly rhythm reads as a daily one, and 'Sunday' with no date is ambiguous. Proposed: show the weekday plus date ('Sunday 18 Oct') and skip to the following Sunday when the next one is less than 3 days away (the same rule R1 and R2 already use).");
   expectNoErrors();

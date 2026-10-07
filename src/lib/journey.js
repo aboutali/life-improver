@@ -1,18 +1,28 @@
 import { isoWeek, parseLocalDate, toLocalDate } from "./dates.js";
+import { formatShortDate } from "./rhythm.js";
 
 // Pure helpers for the check-in reward and the Journey log.
 
 // How many weeks the Journey log shows before "Show earlier weeks".
 export const MAX_WEEKS = 6;
 
+const MIN_DAYS_AHEAD = 3;
+
 const addDays = (date, n) => new Date(date.getFullYear(), date.getMonth(), date.getDate() + n);
 
-// The next Sunday after `today` ("YYYY-MM-DD"). On a Sunday it is the
-// following Sunday, never today.
+// The next Sunday strictly after `today` ("YYYY-MM-DD"). If that Sunday is
+// fewer than 3 days away, the Sunday after it, so a Saturday check-in does
+// not point at tomorrow.
 export function nextCheckinDate(today) {
   const d = parseLocalDate(today);
-  const add = d.getDay() === 0 ? 7 : 7 - d.getDay();
+  let add = d.getDay() === 0 ? 7 : 7 - d.getDay();
+  if (add < MIN_DAYS_AHEAD) add += 7;
   return toLocalDate(addDays(d, add));
+}
+
+// "Sun 18 Oct": the date of the next check-in, for the reward.
+export function nextCheckinLabel(today) {
+  return formatShortDate(nextCheckinDate(today));
 }
 
 // "Sunday" for a "YYYY-MM-DD" date.

@@ -1,4 +1,4 @@
-import { parseLocalDate, toLocalDate, daysBetween } from "./dates.js";
+import { parseLocalDate, toLocalDate, daysBetween, isoWeek } from "./dates.js";
 
 // The weekly rhythm: when the check-in opens, when a season is over, when
 // someone has been away, and where calendar events begin. Pure functions;
@@ -39,13 +39,17 @@ export function isCheckinOpen(focus, today) {
   return today >= checkinOpensOn(focus);
 }
 
-// R6: how many check-ins on the focus sub since it began (or was last reviewed).
+// R6 / P1: how many distinct ISO weeks hold a check-in on the focus sub since
+// it began (or was last reviewed). Two entries in one week count once.
 export function seasonCount(focus, checkins) {
   if (!focus) return 0;
-  const since = focus.reviewedAt || focus.startedAt;
-  return checkins.filter(
-    (c) => c.domainId === focus.domainId && c.subIndex === focus.subIndex && c.date >= since
-  ).length;
+  const since = focus.reviewedAt && focus.reviewedAt > focus.startedAt ? focus.reviewedAt : focus.startedAt;
+  const weeks = new Set(
+    checkins
+      .filter((c) => c.domainId === focus.domainId && c.subIndex === focus.subIndex && c.date >= since)
+      .map((c) => isoWeek(c.date))
+  );
+  return weeks.size;
 }
 
 export function seasonDue(focus, checkins) {

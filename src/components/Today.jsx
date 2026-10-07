@@ -293,11 +293,11 @@ function SeasonCard({ count, subName, onStay, onChoose }) {
         {lead} weeks with {subName}. Stay for another season, or choose a new focus?
       </p>
       <div className="fc-actions">
-        <button type="button" className="btn btn-primary btn-tap" onClick={onStay}>
-          Stay
+        <button type="button" className="btn btn-tap" onClick={onStay}>
+          Stay with {subName}
         </button>
         <button type="button" className="btn btn-tap" onClick={onChoose}>
-          Choose
+          Choose a new focus
         </button>
       </div>
     </section>

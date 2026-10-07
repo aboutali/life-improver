@@ -49,8 +49,9 @@ describe("Journey", () => {
     render(<Journey {...props(list)} />);
     expect(screen.getByText(/3 weeks active · 3 check-ins/)).toBeInTheDocument();
 
-    // Two subs, two sparklines.
-    expect(screen.getAllByRole("img")).toHaveLength(2);
+    // Two subs: a line for the one with several weeks, a note for the lone point.
+    expect(screen.getAllByRole("img")).toHaveLength(1);
+    expect(screen.getByText("Your line starts here.")).toBeInTheDocument();
     expect(screen.getByText("+2")).toBeInTheDocument();
     expect(screen.getByText("New")).toBeInTheDocument();
 
@@ -129,7 +130,11 @@ describe("Journey", () => {
     expect(button).toHaveAttribute("aria-expanded", "false");
     await userEvent.click(button);
     expect(button).toHaveAttribute("aria-expanded", "true");
+    expect(button).toHaveTextContent("Show fewer weeks");
     expect(screen.getAllByRole("listitem")).toHaveLength(8);
+    await userEvent.click(button);
+    expect(button).toHaveTextContent("Show earlier weeks");
+    expect(screen.getAllByRole("listitem")).toHaveLength(6);
   });
 
   it("offers no toggle with six weeks or fewer", () => {

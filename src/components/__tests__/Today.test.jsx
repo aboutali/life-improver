@@ -254,17 +254,17 @@ describe("Today", () => {
       expect(
         screen.getByText(`Four weeks with ${FRAMEWORK[0].subs[0].name}. Stay for another season, or choose a new focus?`)
       ).toBeInTheDocument();
-      await userEvent.click(screen.getByRole("button", { name: "Stay" }));
+      await userEvent.click(screen.getByRole("button", { name: `Stay with ${FRAMEWORK[0].subs[0].name}` }));
       expect(JSON.parse(localStorage.getItem("life-improver:focus:v1")).reviewedAt).toBe(todayStr);
-      expect(screen.queryByRole("button", { name: "Stay" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: `Stay with ${FRAMEWORK[0].subs[0].name}` })).not.toBeInTheDocument();
     });
 
-    it("Choose opens the picker", async () => {
+    it("Choose a new focus opens the picker", async () => {
       seed("quick", { 1: 3 });
       seed("focus", { ...focusValue, startedAt: started });
       seed("checkins", four.slice().reverse());
       render(<Harness navigate={vi.fn()} />);
-      await userEvent.click(screen.getByRole("button", { name: "Choose" }));
+      await userEvent.click(screen.getByRole("button", { name: "Choose a new focus" }));
       expect(screen.getByRole("heading", { name: "Choose where to begin" })).toBeInTheDocument();
     });
 
@@ -273,7 +273,7 @@ describe("Today", () => {
       seed("focus", { ...focusValue, startedAt: started });
       seed("checkins", four.slice().reverse());
       render(<Harness navigate={vi.fn()} />);
-      expect(screen.getByRole("button", { name: "Stay" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: `Stay with ${FRAMEWORK[0].subs[0].name}` })).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Switch" })).not.toBeInTheDocument();
     });
   });

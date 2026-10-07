@@ -4,20 +4,22 @@ import { clearNotice, useNotice } from "../lib/notice.js";
 import { href } from "../lib/router.js";
 
 const WELCOME = new Set(["/welcome", "/welcome/rate", "/welcome/focus"]);
+// Their empty states already lead to the welcome.
+const QUIET_FOR_NEWCOMER = new Set(["/checkin", "/journey"]);
 
 // Messages above the screen, most urgent first:
 //  - saving is off (persistent, no dismiss)
 //  - saved data could not be read (dismissable)
 //  - a one-shot notice, e.g. after a restore (dismissable)
 //  - a newcomer's nudge to the welcome (slim, off the welcome screens)
-export default function Notices({ path, isNewcomer, onDownload }) {
+export default function Notices({ path, isNewcomer, hasData = true, onDownload }) {
   const status = useSyncExternalStore(subscribeStorageStatus, getStorageStatus, getStorageStatus);
   const notice = useNotice();
   // Dismissal is keyed by what was damaged, so new damage speaks again.
   const [dismissed, setDismissed] = useState("");
   const damagedKey = status.damaged.join("|");
   const showDamaged = status.damaged.length > 0 && dismissed !== damagedKey;
-  const showNewcomer = isNewcomer && !WELCOME.has(path);
+  const showNewcomer = isNewcomer && !WELCOME.has(path) && !QUIET_FOR_NEWCOMER.has(path);
 
   if (status.available && !showDamaged && !notice && !showNewcomer) return null;
 
@@ -26,7 +28,7 @@ export default function Notices({ path, isNewcomer, onDownload }) {
       {!status.available && (
         <div className="notice notice-warn" role="alert">
           <span className="notice-text">Saving is off in this browser. Download a copy before you leave.</span>
-          {path !== "/settings" && (
+          {path !== "/settings" && hasData && (
             <button type="button" className="notice-btn" onClick={onDownload}>Download a copy</button>
           )}
         </div>

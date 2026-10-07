@@ -96,9 +96,11 @@ test("S20: browse Practices and adopt one as this week's practice", async ({ pag
   await expect(page).toHaveURL(/#\/$/);
   await expect(page.getByRole("heading", { name: "Sleep & Recovery" })).toBeVisible();
   await expect(page.locator(".fc-practice")).toHaveText(targetText);
-  await expect(page.getByText("You chose this place to begin.")).toBeVisible();
+  // P2: the sub is unchanged, so the clock, the origin and the review stay; only the practice changes.
+  await expect(page.getByText("You rated this 4/10.")).toBeVisible();
   const focus = await readStore(page, "focus");
-  expect(focus).toMatchObject({ domainId: 1, subIndex: 2, practiceIndex: targetIndex, origin: "practice", startedAt: "2026-10-07" });
+  expect(focus).toMatchObject({ domainId: 1, subIndex: 2, practiceIndex: targetIndex, startedAt: RETURNING.focus.startedAt, skipped: [] });
+  expect(focus.origin).toBeUndefined();
   await shot(page, testInfo, "S20", "today-adopted");
 
   // Back on Practices the new practice carries the tag and the old one a button.
@@ -109,16 +111,12 @@ test("S20: browse Practices and adopt one as this week's practice", async ({ pag
   await expect(rows.nth(0).getByRole("button", { name: "Practise this week" })).toBeVisible();
   await shot(page, testInfo, "S20", "practices-after");
 
-  // Planting a practice restarts the clock for the same sub, so Today tells
-  // a person with two check-ins that their "first" check-in opens on Saturday.
+  // P2: adopting inside the sub already in focus keeps the clock, so the
+  // check-in stays open for a person with two earlier check-ins.
   await tab(page, "Today");
-  await expect(page.getByText("Your first check-in opens Saturday.")).toBeVisible();
-  await expect(page.getByRole("link", { name: "Check in early" })).toBeVisible();
-
-  friction(
-    testInfo,
-    "Adopting a different practice inside the sub already in focus restarts startedAt and clears the swap history. A person with two earlier check-ins then reads 'Your first check-in opens Saturday.' and the check-in button is replaced by 'Check in early', although they already checked in last week. Swap practice on Today keeps the clock; adoption should too when the sub does not change."
-  );
+  await expect(page.getByText("Your first check-in opens")).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Check in early" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Check in", exact: true })).toBeVisible();
   expectNoErrors();
 });
 
@@ -252,7 +250,7 @@ test("S23: download a copy, start over, restore on a new device", async ({ page,
   expect(await readStore(page, "checkins")).toEqual([]);
   expect(await readStore(page, "focus")).toBeNull();
   // The welcome screen now offers the way back.
-  await expect(page.getByText("I have a saved copy")).toBeVisible();
+  await expect(page.getByText("Restore from a saved copy")).toBeVisible();
   await shot(page, testInfo, "S23", "after-reset");
 
   // New device: a second, empty browser context with the project's options.
@@ -270,7 +268,7 @@ test("S23: download a copy, start over, restore on a new device", async ({ page,
     await freezeAt(page2);
     await page2.goto("#/");
     await expect(page2).toHaveURL(/#\/welcome$/);
-    await expect(page2.getByText("I have a saved copy")).toBeVisible();
+    await expect(page2.getByText("Restore from a saved copy")).toBeVisible();
     await shot(page2, testInfo, "S23", "new-device-welcome");
 
     // One step from the welcome screen: pick the file; the page reloads onto Today.
@@ -330,10 +328,10 @@ test("S24: storage throws (private mode)", async ({ page }, testInfo) => {
   await go(page, "/");
   await expect(page).toHaveURL(/#\/welcome$/);
 
-  // The warning is there from the first screen, with a way to act on it.
+  // The warning is there from the first screen; with nothing to save yet, it offers no download.
   const banner = page.getByRole("alert").filter({ hasText: "Saving is off in this browser. Download a copy before you leave." });
   await expect(banner).toBeVisible();
-  await expect(banner.getByRole("button", { name: "Download a copy" })).toBeVisible();
+  await expect(banner.getByRole("button", { name: "Download a copy" })).toHaveCount(0);
   await shot(page, testInfo, "S24", "welcome");
 
   await page.getByRole("button", { name: "Begin" }).click();
@@ -352,6 +350,8 @@ test("S24: storage throws (private mode)", async ({ page }, testInfo) => {
   // The banner stays after the first real action, and cannot be dismissed.
   await expect(banner).toBeVisible();
   await expect(banner.getByRole("button", { name: "Dismiss" })).toHaveCount(0);
+  // Now there is something to save, so the download is offered.
+  await expect(banner.getByRole("button", { name: "Download a copy" })).toBeVisible();
   await shot(page, testInfo, "S24", "today-in-memory");
 
   // Check-in works in memory too. It is the first day, so it is an early one.
@@ -905,23 +905,31 @@ test("S50: Practices deep link ?d=&s= selects the domain and sub", async ({ page
   // The last domain on a phone sits in a horizontal scroller.
   await go(page, "/practices?d=7&s=3");
   await expect(page.locator(".sp.a")).toHaveText("Humor");
-  const activePillInView = await page.locator(".dp.a").evaluate((el) => {
-    const r = el.getBoundingClientRect();
-    return r.left >= 0 && r.right <= window.innerWidth;
-  });
+  // P5: the active pill is scrolled into view, also on a phone.
+  await expect
+    .poll(() =>
+      page.locator(".dp.a").evaluate((el) => {
+        const r = el.getBoundingClientRect();
+        return r.left >= 0 && r.right <= window.innerWidth;
+      })
+    )
+    .toBe(true);
   await shot(page, testInfo, "S50", "last-domain");
 
-  // Picking another pill by hand leaves the address as it was.
+  // P5: picking another pill by hand updates the address, so a reload keeps it.
   await page.getByRole("button", { name: "Mind & Learning", exact: true }).click();
   await expect(page.locator(".dp.a")).toHaveText("Mind & Learning");
-  const urlAfterClick = page.url();
+  await expect(page).toHaveURL(/#\/practices\?d=2&s=0$/);
   await page.reload();
-  await expect(page.locator(".dp.a")).toHaveText("Leisure & Pleasure");
+  await expect(page.locator(".dp.a")).toHaveText("Mind & Learning");
+  await expect(page.locator(".sp.a")).toHaveText(subOf(2, 0).name);
+  const sub1 = subOf(2, 1).name;
+  await page.getByRole("button", { name: sub1, exact: true }).click();
+  await expect(page).toHaveURL(/#\/practices\?d=2&s=1$/);
 
-  friction(
-    testInfo,
-    `On the deep link the selected domain pill is ${activePillInView ? "in view" : "scrolled out of view on this screen, so the person cannot see which domain is open"}. Choosing another pill by hand does not update the address (${urlAfterClick.split("#")[1]}), so a reload or a shared link returns to the earlier selection.`
-  );
+  // P6: a link row under the intro leads to the framework and the sources.
+  await expect(page.getByRole("link", { name: "About the framework" })).toHaveAttribute("href", "#/framework");
+  await expect(page.getByRole("link", { name: "Sources" }).first()).toHaveAttribute("href", "#/sources");
   expectNoErrors();
 });
 
@@ -1059,7 +1067,7 @@ test("S53: writes blocked after load: banner stays, download keeps the in-memory
   await expect(page.locator(".fc-practice")).toHaveText(subOf(1, 2).ideas[4]);
   await expect(banner).toBeVisible();
   const copy = await downloadJson(page, testInfo, banner.getByRole("button", { name: "Download a copy" }), "memory-copy.json");
-  expect(copy.json.data.focus).toMatchObject({ domainId: 1, subIndex: 2, practiceIndex: 4, origin: "practice" });
+  expect(copy.json.data.focus).toMatchObject({ domainId: 1, subIndex: 2, practiceIndex: 4, startedAt: RETURNING.focus.startedAt });
   expect(copy.json.data.checkins).toHaveLength(2);
   expect(copy.json.data.scores).toEqual({ "1-2": 4 });
   // The disk copy was never updated.

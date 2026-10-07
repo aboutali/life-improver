@@ -31,6 +31,7 @@ describe("CheckIn", () => {
   it("links an empty state to the welcome for a newcomer", () => {
     render(<Harness navigate={vi.fn()} />);
     expect(screen.getByRole("link", { name: "Begin with a one-minute welcome" })).toHaveAttribute("href", "#/welcome");
+    expect(screen.getByText("There is nothing to check in on yet. A one-minute welcome sets your first focus.")).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Choose a focus first" })).not.toBeInTheDocument();
   });
 
@@ -153,7 +154,8 @@ describe("CheckIn", () => {
     await userEvent.click(screen.getByLabelText("7"));
     await userEvent.type(screen.getByLabelText(/A note/), "Slow start");
     await userEvent.click(screen.getByRole("button", { name: "Save check-in" }));
-    expect(screen.getByText(/^Next check-in: (Sunday)$/)).toBeInTheDocument();
+    expect(screen.getByText(/^Next check-in: Sun \d{1,2} [A-Z][a-z]{2}$/)).toBeInTheDocument();
+    expect(screen.getByText("Your line starts here.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Try a different practice" })).toBeInTheDocument();
 
     const saved = stored(KEYS.checkins);
@@ -171,7 +173,7 @@ describe("CheckIn", () => {
     expect(stored(KEYS.scores)["1-0"]).toBe(7);
 
     expect(screen.getByText(/A first mark on the page/)).toBeInTheDocument();
-    expect(screen.getByRole("img")).toBeInTheDocument();
+    expect(screen.queryByRole("img")).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Keep this practice" }));
     expect(navigate).toHaveBeenCalledWith("/");
@@ -218,5 +220,16 @@ describe("CheckIn", () => {
     render(<Harness navigate={vi.fn()} />);
     expect(screen.getByText("You already checked in this week. A new entry adds to it.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save check-in" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Back to Today" })).toHaveAttribute("href", "#/");
+  });
+
+  it("says so when the check-in is early, and not once it has opened", () => {
+    localStorage.setItem(KEYS.focus, JSON.stringify({ ...FOCUS, startedAt: toLocalDate() }));
+    const early = render(<Harness navigate={vi.fn()} />);
+    expect(screen.getByText("You started recently. Check in early only if you like.")).toBeInTheDocument();
+    early.unmount();
+    localStorage.setItem(KEYS.focus, JSON.stringify({ ...FOCUS, startedAt: "2020-01-01" }));
+    render(<Harness navigate={vi.fn()} />);
+    expect(screen.queryByText(/You started recently/)).not.toBeInTheDocument();
   });
 });

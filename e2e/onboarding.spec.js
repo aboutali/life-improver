@@ -416,8 +416,8 @@ test.describe("Group 1: first time and first week", () => {
     // Check-in: explains itself and links straight to the welcome.
     await go(page, "/checkin");
     await expect(page.getByRole("heading", { name: "Weekly check-in" })).toBeVisible();
-    await expect(page.getByText(/A check-in looks back at one practice/)).toBeVisible();
-    await expect(banner).toBeVisible();
+    await expect(page.getByText("There is nothing to check in on yet. A one-minute welcome sets your first focus.")).toBeVisible();
+    await expect(banner).toHaveCount(0);
     await shot(page, testInfo, "S08", "1-checkin");
     await expect(page.getByRole("link", { name: "Choose a focus first" })).toHaveCount(0);
     const begin = page.getByRole("main").getByRole("link", { name: "Begin with a one-minute welcome", exact: true });
@@ -428,6 +428,7 @@ test.describe("Group 1: first time and first week", () => {
     await go(page, "/journey");
     await expect(page.getByRole("heading", { name: "Journey" })).toBeVisible();
     await expect(page.getByText(/Nothing here yet/)).toBeVisible();
+    await expect(banner).toHaveCount(0);
     await shot(page, testInfo, "S08", "2-journey");
     await expect(page.getByRole("link", { name: "Make a first check-in" })).toHaveCount(0);
     await page.getByRole("main").getByRole("link", { name: "Begin with a one-minute welcome", exact: true }).click();
@@ -452,15 +453,15 @@ test.describe("Group 1: first time and first week", () => {
   test("S30: a user restores a saved copy from the welcome screen", async ({ page }, testInfo) => {
     const { expectNoErrors } = trackErrors(page);
     await newcomer(page);
-    await expect(page.getByText("I have a saved copy")).toBeVisible();
+    await expect(page.getByText("Restore from a saved copy")).toBeVisible();
     const input = page.locator('input[type="file"]');
     await expect(input).toHaveCount(1);
 
     // A wrong file explains itself and changes nothing.
     await input.setInputFiles({ name: "notes.json", mimeType: "application/json", buffer: Buffer.from('{"hello":1}') });
-    await expect(page.getByRole("alert")).toHaveText("This file is not a Life Improver export.");
+    await expect(page.getByRole("alert")).toHaveText("This file is not a Life Improver export. Use the .json file from Settings, Download a copy.");
     await shot(page, testInfo, "S30", "1-bad-file");
-    friction(testInfo, "'I have a saved copy' is a faint grey underlined line under Begin, and a wrong file says 'not a Life Improver export' without saying what a saved copy is (the .json from Settings > Download a copy).");
+    friction(testInfo, "'Restore from a saved copy' is a faint grey underlined line under Begin, and a wrong file says 'not a Life Improver export' without saying what a saved copy is (the .json from Settings > Download a copy).");
     expect((await readStore(page, "checkins")) ?? []).toEqual([]);
 
     // A real export restores and lands on Today with a notice.

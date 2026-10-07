@@ -28,11 +28,16 @@ npm run build      # production bundle to dist/
 npm run preview    # serve the built bundle
 npm test           # Vitest, jsdom environment
 npm run lint       # ESLint, config in eslint.config.js
+npm run e2e        # Playwright user stories against the built app (run npm run build first)
 ```
 
 Tests live next to the code they cover, in `__tests__` folders. The Vitest setup file is `src/test/setup.js`. The Vitest config is `vitest.config.js`, separate from `vite.config.js`.
 
-CI (`.github/workflows/ci.yml`) runs lint, test, and build on every push and pull request.
+User-story tests live in `e2e/`, one spec per story group. `docs/product/USER_STORIES.md` lists every story. Shared helpers in `e2e/helpers.js` seed storage and freeze the clock. In this container, set `PW_CHROMIUM_PATH=/opt/pw-browsers/chromium-1194/chrome-linux/chrome`.
+
+CI (`.github/workflows/ci.yml`) runs lint, unit tests, build, and the e2e stories on every push and pull request.
+
+When a flow changes, update the matching story in `e2e/` and its row in `USER_STORIES.md` in the same change.
 
 ## Architecture
 
@@ -48,6 +53,10 @@ Four layers, top-to-bottom:
    - `storage.js`: storage keys, migration, validators, export, and import.
    - `router.js`: hash routes and the `useRoute()` hook.
    - `shareCard.js`: draws the share image on a canvas.
+   - `rhythm.js`: the weekly rhythm. Check-in opening day, season review, lapsed weeks, and calendar defaults.
+   - `journey.js`: Journey grouping by week and the next check-in date.
+   - `notice.js`: one-shot notices shown above any screen.
+   - `download.js`: saves a JSON file in the browser.
 
    Most functions are pure. `shareCard.js` and `downloadIcs` in `ics.js` call browser APIs.
 

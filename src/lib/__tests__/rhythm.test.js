@@ -56,6 +56,15 @@ describe("seasonDue (R6)", () => {
     expect(seasonDue({ ...focus, reviewedAt: "2026-09-29" }, four)).toBe(false);
     expect(seasonCount({ ...focus, reviewedAt: "2026-09-22" }, four)).toBe(2);
   });
+  it("counts distinct ISO weeks, not check-ins (P1)", () => {
+    const sameWeek = [ck("2026-09-08"), ck("2026-09-09"), ck("2026-09-15"), ck("2026-09-22"), ck("2026-09-23")];
+    expect(seasonCount(focus, sameWeek)).toBe(3);
+    expect(seasonDue(focus, sameWeek)).toBe(false);
+    expect(seasonDue(focus, [...sameWeek, ck("2026-09-29")])).toBe(true);
+  });
+  it("uses the later of startedAt and reviewedAt", () => {
+    expect(seasonCount({ ...focus, startedAt: "2026-09-22", reviewedAt: "2026-09-01" }, four)).toBe(2);
+  });
   it("is false without a focus", () => {
     expect(seasonDue(null, four)).toBe(false);
   });

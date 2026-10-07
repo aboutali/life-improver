@@ -133,10 +133,21 @@ describe("App routes and notices", () => {
   });
 
   it("shows a newcomer banner off the welcome screens, linking to the welcome", async () => {
-    window.location.hash = "#/journey";
+    window.location.hash = "#/assess";
     render(<App />);
     const link = screen.getByRole("link", { name: "Begin with a one-minute welcome." });
     expect(link).toHaveAttribute("href", "#/welcome");
+  });
+
+  it("hides the newcomer banner on Check-in and Journey, whose empty states lead to the welcome", () => {
+    window.location.hash = "#/checkin";
+    const first = render(<App />);
+    expect(first.container.textContent).not.toMatch(/New here\?/);
+    first.unmount();
+    window.location.hash = "#/journey";
+    const second = render(<App />);
+    expect(second.container.textContent).not.toMatch(/New here\?/);
+    expect(screen.getByRole("link", { name: "Begin with a one-minute welcome" })).toHaveAttribute("href", "#/welcome");
   });
 
   it("shows no newcomer banner on the welcome screens or once rated", async () => {
@@ -160,6 +171,17 @@ describe("App routes and notices", () => {
     expect(alert).toHaveTextContent("Saving is off in this browser. Download a copy before you leave.");
     expect(alert.querySelector("button[class~='notice-btn']")).toHaveTextContent("Download a copy");
     expect(screen.queryByRole("button", { name: "Dismiss" })).not.toBeInTheDocument();
+  });
+
+  it("offers no download button when saving is off and there is no data", () => {
+    window.location.hash = "#/assess";
+    const spy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    render(<App />);
+    spy.mockRestore();
+    expect(screen.getByRole("alert")).toHaveTextContent("Saving is off in this browser.");
+    expect(screen.queryByRole("button", { name: "Download a copy" })).not.toBeInTheDocument();
   });
 
   it("warns, dismissably, when saved data could not be read", async () => {

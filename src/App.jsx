@@ -42,6 +42,7 @@ export default function App() {
 
   const hasQuick = Object.keys(quick.quick || {}).length > 0;
   const isNewcomer = !hasQuick && scores.scoredCount === 0;
+  const hasData = !isNewcomer || Boolean(focus.focus) || checkins.checkins.length > 0;
 
   useEffect(() => {
     if (path === "/" && isNewcomer) go("/welcome", { replace: true, quiet: true });
@@ -117,7 +118,7 @@ export default function App() {
 
       <main id="main" ref={mainRef} tabIndex={-1} style={{ maxWidth: 960, margin: "0 auto", padding: "24px 24px 64px", outline: "none" }}>
         <div className="app-screen" style={{ maxWidth }}>
-          <Notices path={path} isNewcomer={isNewcomer} onDownload={downloadCopy} />
+          <Notices path={path} isNewcomer={isNewcomer} hasData={hasData} onDownload={downloadCopy} />
           <ErrorBoundary resetKey={path}>{screen}</ErrorBoundary>
         </div>
       </main>

@@ -125,7 +125,7 @@ export default function Journey({ scores, quick, checkins }) {
           aria-expanded={showAll}
           onClick={() => setShowAll((v) => !v)}
         >
-          Show earlier weeks
+          {showAll ? "Show fewer weeks" : "Show earlier weeks"}
         </button>
       )}
     </div>

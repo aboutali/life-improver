@@ -4,7 +4,9 @@ import { isoWeek } from "../lib/dates.js";
 import { useToday } from "../hooks/useToday.js";
 import { changeSinceFirst, hasCheckinThisWeek, seriesFor } from "../lib/trends.js";
 import { nextPractice } from "../lib/recommend.js";
-import { isNewcomer, nextCheckinDate, weekdayName } from "../lib/journey.js";
+import { isNewcomer, nextCheckinLabel } from "../lib/journey.js";
+import { isCheckinOpen } from "../lib/rhythm.js";
+import { href } from "../lib/router.js";
 import Sparkline from "./Sparkline.jsx";
 
 const MAX_NOTE = 500;
@@ -85,7 +87,7 @@ function Reward({ result, sub, today, onKeep, onSwap }) {
         <Sparkline series={result.series} width={200} height={48} label={sub.name} />
       </div>
       <p style={{ fontSize: 14, color: "#555", marginBottom: 20 }}>
-        Next check-in: {weekdayName(nextCheckinDate(today))}
+        Next check-in: {nextCheckinLabel(today)}
       </p>
       <div className="ci-actions" style={{ justifyContent: "center" }}>
         <button type="button" className="btn btn-primary" onClick={onKeep}>
@@ -110,6 +112,8 @@ export default function CheckIn({ scores, quick, focus, checkins, navigate }) {
   const [note, setNote] = useState("");
   const [result, setResult] = useState(null);
 
+  const newcomer = isNewcomer(quick?.quick, scores.scoredCount);
+
   if (!f || !sub) {
     return (
       <div className="cd" style={{ textAlign: "center", padding: 40 }}>
@@ -117,9 +121,11 @@ export default function CheckIn({ scores, quick, focus, checkins, navigate }) {
           Weekly check-in
         </h2>
         <p style={{ fontSize: 14, color: "#666", marginBottom: 20 }}>
-          A check-in looks back at one practice. Choose a focus, and come back when the week has had its say.
+          {newcomer
+            ? "There is nothing to check in on yet. A one-minute welcome sets your first focus."
+            : "A check-in looks back at one practice. Choose a focus, and come back when the week has had its say."}
         </p>
-        {isNewcomer(quick?.quick, scores.scoredCount) ? (
+        {newcomer ? (
           <a href="#/welcome" className="btn btn-primary ci-link">
             Begin with a one-minute welcome
           </a>
@@ -197,7 +203,13 @@ export default function CheckIn({ scores, quick, focus, checkins, navigate }) {
 
       {already && (
         <p style={{ fontSize: 13, color: "#888", marginBottom: 16 }}>
-          You already checked in this week. A new entry adds to it.
+          You already checked in this week. A new entry adds to it.{" "}
+          <a href={href("/")} className="ci-back">Back to Today</a>
+        </p>
+      )}
+      {!isCheckinOpen(f, today) && (
+        <p style={{ fontSize: 13, color: "#888", marginBottom: 16 }}>
+          You started recently. Check in early only if you like.
         </p>
       )}
 

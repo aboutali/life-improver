@@ -33,17 +33,23 @@ export default function Sparkline({ series = [], width: initialWidth = 120, heig
 
   if (!series.length) return null;
 
+  // One point is not a line yet: say so instead of drawing a lone dot.
+  if (series.length === 1) {
+    return (
+      <p className="spark spark-start" style={{ minHeight: height }}>
+        Your line starts here.
+      </p>
+    );
+  }
+
   const first = series[0];
   const last = series[series.length - 1];
-  const summary =
-    series.length === 1
-      ? `Score ${first.score} out of 10 on ${shortDate(first.date)}.`
-      : `Score moved from ${first.score} on ${shortDate(first.date)} to ${last.score} on ${shortDate(last.date)}, out of 10.`;
+  const summary = `Score moved from ${first.score} on ${shortDate(first.date)} to ${last.score} on ${shortDate(last.date)}, out of 10.`;
   const name = label ? `${label}: ${summary}` : summary;
 
   const innerW = width - PAD * 2;
   const innerH = height - PAD * 2;
-  const x = (i) => (series.length === 1 ? width / 2 : PAD + (i / (series.length - 1)) * innerW);
+  const x = (i) => PAD + (i / (series.length - 1)) * innerW;
   const y = (score) => PAD + ((10 - Math.min(10, Math.max(1, score))) / 9) * innerH;
   const points = series.map((p, i) => `${x(i).toFixed(1)},${y(p.score).toFixed(1)}`).join(" ");
 
@@ -57,10 +63,8 @@ export default function Sparkline({ series = [], width: initialWidth = 120, heig
       height={height}
       style={{ display: "block" }}
     >
-      {series.length > 1 && (
-        <polyline points={points} fill="none" stroke="#2B6CB0" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-      )}
-      {series.length > 1 && <circle cx={x(0)} cy={y(first.score)} r="2" fill="#fff" stroke="#2B6CB0" strokeWidth="1.5" />}
+      <polyline points={points} fill="none" stroke="#2B6CB0" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+      <circle cx={x(0)} cy={y(first.score)} r="2" fill="#fff" stroke="#2B6CB0" strokeWidth="1.5" />
       <circle cx={x(series.length - 1)} cy={y(last.score)} r="3.5" fill="#2B6CB0" />
     </svg>
     </div>

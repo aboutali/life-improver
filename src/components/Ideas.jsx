@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FRAMEWORK, TOTAL_IDEAS } from "../data/framework.js";
 import { makeFocus } from "../lib/recommend.js";
 import { toLocalDate } from "../lib/dates.js";
@@ -32,30 +32,58 @@ export default function Ideas({ focus, checkins, navigate, query }) {
     }
   }
 
-  const current = focus?.focus || null;
-  const adopt = (practiceIndex) => {
-    focus?.setFocus(
-      makeFocus({
-        domainId: dom.id,
-        subIndex: subIdx,
-        practiceIndex,
-        origin: "practice",
-        today: toLocalDate(),
-        checkins: checkins?.checkins || [],
-      })
-    );
-    navigate?.("/");
-  };
-
   const dom = domIdx !== null ? FRAMEWORK[domIdx] : null;
   const sub = dom ? dom.subs[subIdx] : null;
 
+  // P5: keep the chosen domain and sub pills in view on a narrow screen.
+  const rootRef = useRef(null);
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    for (const el of root.querySelectorAll(".dp.a, .sp.a")) {
+      if (typeof el.scrollIntoView === "function") el.scrollIntoView({ inline: "center", block: "nearest" });
+    }
+  }, [domIdx, subIdx]);
+
+  // P5: a manual choice updates the address, so a reload or a shared link keeps it.
+  const choose = (nextDom, nextSub) => {
+    if (nextDom === domIdx && nextSub === subIdx) return;
+    setDomIdx(nextDom);
+    setSubIdx(nextSub);
+    navigate?.(`/practices?d=${FRAMEWORK[nextDom].id}&s=${nextSub}`, { replace: true, quiet: true });
+  };
+
+  const current = focus?.focus || null;
+  const adopt = (practiceIndex) => {
+    if (current && current.domainId === dom.id && current.subIndex === subIdx) {
+      // P2: the same sub keeps its clock, review and nudge choice; only the practice changes.
+      focus?.setFocus({ ...current, practiceIndex, skipped: [] });
+    } else {
+      focus?.setFocus(
+        makeFocus({
+          domainId: dom.id,
+          subIndex: subIdx,
+          practiceIndex,
+          origin: "practice",
+          today: toLocalDate(),
+          checkins: checkins?.checkins || [],
+        })
+      );
+    }
+    navigate?.("/");
+  };
+
   return (
-    <div>
+    <div ref={rootRef}>
       <div style={{ marginBottom: 24 }}>
         <h2 className="sf cat-title">{TOTAL_IDEAS} ways forward.</h2>
         <p style={{ fontSize: 14, color: "#666", maxWidth: 600 }}>
           Pick one. Make it part of your life. Then pick another. That's how this works.
+        </p>
+        <p className="cat-links">
+          <a href="#/framework">About the framework</a>
+          <span aria-hidden="true"> &middot; </span>
+          <a href="#/sources">Sources</a>
         </p>
       </div>
 
@@ -64,7 +92,7 @@ export default function Ideas({ focus, checkins, navigate, query }) {
           <button
             key={d.id}
             className={`dp ${domIdx === i ? "a" : ""}`}
-            onClick={() => { setDomIdx(i); setSubIdx(0); }}
+            onClick={() => choose(i, 0)}
           >
             <span>{d.domain}</span>
           </button>
@@ -84,7 +112,7 @@ export default function Ideas({ focus, checkins, navigate, query }) {
                 <button
                   key={si}
                   className={`sp ${subIdx === si ? "a" : ""}`}
-                  onClick={() => setSubIdx(si)}
+                  onClick={() => choose(domIdx, si)}
                 >
                   {s.name}
                 </button>
@@ -111,7 +139,7 @@ export default function Ideas({ focus, checkins, navigate, query }) {
                     ) : (
                       <button
                         type="button"
-                        className="btn btn-tap cat-act"
+                        className="btn-text cat-act"
                         aria-label={`Practise this week: ${idea}`}
                         onClick={() => adopt(i)}
                       >
