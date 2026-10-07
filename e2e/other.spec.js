@@ -1,8 +1,10 @@
-// Group 3 user stories (S20-S29). Each test records screenshots in e2e/.artifacts
-// and notes flow friction through the shared `friction` helper.
+// Group 3 user stories (S20-S29, S50-S55), updated for the v2.1 flows.
+// Each test records screenshots in e2e/.artifacts and notes remaining flow
+// friction through the shared `friction` helper.
 import fs from "node:fs";
 import { test, expect } from "@playwright/test";
 import { freezeAt, seed, go, trackErrors, readStore, friction, RETURNING, KEYS } from "./helpers.js";
+import { FRAMEWORK } from "../src/data/framework.js";
 
 // ---------- local helpers ----------
 
@@ -39,11 +41,28 @@ function allScores(value, overrides = {}, omit = []) {
   return out;
 }
 
+const domainOf = (id) => FRAMEWORK.find((d) => d.id === id);
+const subOf = (domainId, subIndex) => domainOf(domainId).subs[subIndex];
+
 const pngSize = (buf) => ({
   sig: buf.subarray(0, 8).toString("hex"),
   width: buf.readUInt32BE(16),
   height: buf.readUInt32BE(20),
 });
+
+// Practices: open a domain pill and a sub pill by hand.
+async function openSub(page, domainName, subName) {
+  await page.getByRole("button", { name: domainName, exact: true }).click();
+  await page.getByRole("button", { name: subName, exact: true }).click();
+}
+
+// Save the file a click downloads and parse it as JSON.
+async function downloadJson(page, testInfo, trigger, filename) {
+  const [download] = await Promise.all([page.waitForEvent("download"), trigger.click()]);
+  const file = testInfo.outputPath(filename);
+  await download.saveAs(file);
+  return { name: download.suggestedFilename(), json: JSON.parse(fs.readFileSync(file, "utf8")), file };
+}
 
 // ---------- S20 ----------
 
@@ -55,51 +74,57 @@ test("S20: browse Practices and adopt one as this week's practice", async ({ pag
   await expect(page.getByRole("heading", { name: "Sleep & Recovery" })).toBeVisible();
 
   await tab(page, "Practices");
-  await page.getByRole("button", { name: "Body & Vitality" }).click();
-  await page.getByRole("button", { name: "Sleep & Recovery" }).click();
+  await openSub(page, "Body & Vitality", "Sleep & Recovery");
   const rows = page.locator(".ir");
   const rowCount = await rows.count();
-  expect(rowCount).toBeGreaterThan(5);
-  const targetIndex = 5;
-  const targetText = (await rows.nth(targetIndex).locator("span").nth(1).innerText()).trim();
+  expect(rowCount).toBe(10);
+
+  // The practice already in use is marked "This week" and has no button;
+  // every other row offers "Practise this week".
+  await expect(page.locator(".cat-tag")).toHaveCount(1);
+  await expect(rows.nth(0).locator(".cat-tag")).toHaveText("This week");
+  await expect(rows.nth(0).getByRole("button")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^Practise this week/ })).toHaveCount(rowCount - 1);
   await shot(page, testInfo, "S20", "practices-list");
 
-  // There is no action on a practice row, and nothing on the page to adopt one.
-  await expect(page.locator(".ir button, .ir a")).toHaveCount(0);
-  await expect(
-    page.getByRole("main").getByRole("button", { name: /adopt|use this|make this|set as|start this|this week/i })
-  ).toHaveCount(0);
-  // The row does not even say whether it is the practice already in use.
-  await rows.nth(0).click();
-  await expect(page).toHaveURL(/#\/practices$/);
+  const targetIndex = 5;
+  const targetText = subOf(1, 2).ideas[targetIndex];
+  await expect(rows.nth(targetIndex).locator(".cat-text")).toHaveText(targetText);
+  await rows.nth(targetIndex).getByRole("button", { name: "Practise this week" }).click();
 
-  // Only workaround: Today > Swap practice steps through the sub's list one by one.
+  // One tap: plants the practice and goes to Today.
+  await expect(page).toHaveURL(/#\/$/);
+  await expect(page.getByRole("heading", { name: "Sleep & Recovery" })).toBeVisible();
+  await expect(page.locator(".fc-practice")).toHaveText(targetText);
+  await expect(page.getByText("You chose this place to begin.")).toBeVisible();
+  const focus = await readStore(page, "focus");
+  expect(focus).toMatchObject({ domainId: 1, subIndex: 2, practiceIndex: targetIndex, origin: "practice", startedAt: "2026-10-07" });
+  await shot(page, testInfo, "S20", "today-adopted");
+
+  // Back on Practices the new practice carries the tag and the old one a button.
+  await tab(page, "Practices");
+  await openSub(page, "Body & Vitality", "Sleep & Recovery");
+  await expect(page.locator(".cat-tag")).toHaveCount(1);
+  await expect(rows.nth(targetIndex).locator(".cat-tag")).toHaveText("This week");
+  await expect(rows.nth(0).getByRole("button", { name: "Practise this week" })).toBeVisible();
+  await shot(page, testInfo, "S20", "practices-after");
+
+  // Planting a practice restarts the clock for the same sub, so Today tells
+  // a person with two check-ins that their "first" check-in opens on Saturday.
   await tab(page, "Today");
-  const practice = page.locator(".fc-practice");
-  let swaps = 0;
-  while ((await practice.innerText()).trim() !== targetText && swaps < 15) {
-    await page.getByRole("button", { name: "Swap practice" }).click();
-    swaps++;
-  }
-  expect((await practice.innerText()).trim()).toBe(targetText);
-  expect(swaps).toBeGreaterThan(2);
-  await shot(page, testInfo, "S20", "today-after-swaps");
-
-  // And the picker on Today only offers subs, never a specific practice.
-  await page.getByRole("button", { name: "Choose another focus" }).click();
-  await expect(page.locator(".fp").getByRole("button", { name: /practice/i })).toHaveCount(0);
-  await shot(page, testInfo, "S20", "picker");
+  await expect(page.getByText("Your first check-in opens Saturday.")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Check in early" })).toBeVisible();
 
   friction(
     testInfo,
-    `Practices rows (${rowCount} in Sleep & Recovery) have no action, no marker for the current practice, and no link back to Today. The only route to a chosen practice is Today > Swap practice repeatedly (${swaps} swaps to reach practice 6), and only inside the current focus sub. Choosing another sub always assigns its first fresh practice.`
+    "Adopting a different practice inside the sub already in focus restarts startedAt and clears the swap history. A person with two earlier check-ins then reads 'Your first check-in opens Saturday.' and the check-in button is replaced by 'Check in early', although they already checked in last week. Swap practice on Today keeps the clock; adoption should too when the sub does not change."
   );
   expectNoErrors();
 });
 
 // ---------- S21 ----------
 
-test("S21: complete all 30 subs, share the image, return to Today", async ({ page }, testInfo) => {
+test("S21: complete all 30 subs, share the image, switch focus from Today", async ({ page }, testInfo) => {
   const { expectNoErrors } = trackErrors(page);
   await freezeAt(page);
   // 29 subs rated 6, the focus sub (Sleep & Recovery) 4; Humor (7-3) is the one left to do.
@@ -129,26 +154,27 @@ test("S21: complete all 30 subs, share the image, return to Today", async ({ pag
   await expect(page.getByRole("status").filter({ hasText: "Image saved to your downloads." })).toBeVisible();
   await shot(page, testInfo, "S21", "image-saved");
 
-  // The dashboard "Focus" label names a domain; there is no way to act on it here.
+  // The dashboard now leads back to the week: one primary button to Today,
+  // and a "Make this my focus" action on every "Focus here" row but the current focus.
   await expect(page.getByText("Focus here")).toBeVisible();
-  await expect(page.getByRole("main").getByRole("button", { name: /make this my focus|set as focus|plant/i })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Make this my focus: Humor" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Make this my focus: Sleep & Recovery" })).toHaveCount(0);
+  await page.getByRole("button", { name: "See this week's focus" }).click();
 
-  await tab(page, "Today");
-  // Today still shows the old focus: Sleep & Recovery at 4/10, while Humor is now the lowest at 2/10.
+  // Today keeps the focus and says Humor is now the lowest, with a Switch button.
+  await expect(page).toHaveURL(/#\/$/);
   await expect(page.getByRole("heading", { name: "Sleep & Recovery" })).toBeVisible();
   await expect(page.getByText("You rated this 4/10.")).toBeVisible();
-  await expect(page.locator(".fc")).not.toContainText("Humor");
-  await shot(page, testInfo, "S21", "today");
+  await expect(page.getByText("Humor is now your lowest (2/10). Switch your focus?")).toBeVisible();
+  await shot(page, testInfo, "S21", "today-nudge");
 
-  // Humor is only reachable through the picker.
-  await page.getByRole("button", { name: "Choose another focus" }).click();
-  await expect(page.locator(".fp").getByRole("button", { name: /Humor/ })).toBeVisible();
-  await shot(page, testInfo, "S21", "today-picker");
+  await page.getByRole("button", { name: "Switch", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Humor" })).toBeVisible();
+  await expect(page.getByText("You chose this place to begin.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Switch", exact: true })).toHaveCount(0);
+  expect(await readStore(page, "focus")).toMatchObject({ domainId: 7, subIndex: 3, origin: "picked", startedAt: "2026-10-07" });
+  await shot(page, testInfo, "S21", "today-switched");
 
-  friction(
-    testInfo,
-    "After rating all 30 subs the lowest is Humor (2/10) but Today keeps Sleep & Recovery (4/10) with 'You rated this 4/10.' and no comment. Assess dashboard shows 'Focus' (weakest domain) and 'Focus here' (lowest subs) which disagree with Today's focus and offer no button to adopt them."
-  );
   expectNoErrors();
 });
 
@@ -160,24 +186,42 @@ test("S22: lowering another sub below the focus sub in Assess", async ({ page },
   await seed(page, { quick: RETURNING.quick, focus: RETURNING.focus, checkins: RETURNING.checkins, scores: RETURNING.scores });
   await go(page, "/");
   await expect(page.getByText("You rated this 4/10.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Switch", exact: true })).toHaveCount(0);
   await shot(page, testInfo, "S22", "today-before");
 
+  // One point lower than the focus sub is not enough to speak up.
+  await tab(page, "Assess");
+  await rateSub(page, "Leisure & Pleasure", "Humor", 3);
+  await tab(page, "Today");
+  await expect(page.getByRole("button", { name: "Switch", exact: true })).toHaveCount(0);
+
+  // Two points lower is.
   await tab(page, "Assess");
   await rateSub(page, "Leisure & Pleasure", "Humor", 2);
   await shot(page, testInfo, "S22", "assess-lowered");
-
   await tab(page, "Today");
   await expect(page.getByRole("heading", { name: "Sleep & Recovery" })).toBeVisible();
-  await expect(page.getByText("You rated this 4/10.")).toBeVisible();
-  // Nothing on Today mentions the new lowest sub or offers a switch.
-  await expect(page.getByRole("main")).not.toContainText("Humor");
-  await expect(page.getByRole("main").getByRole("button", { name: /switch|change focus|move to/i })).toHaveCount(0);
+  const card = page.locator(".nudge");
+  await expect(card).toContainText("Humor is now your lowest (2/10). Switch your focus?");
+  await expect(card.getByRole("button", { name: "Switch", exact: true })).toBeVisible();
   await shot(page, testInfo, "S22", "today-after");
 
-  friction(
-    testInfo,
-    "Humor now scores 2/10, below the focus sub (4/10), yet Today is unchanged: no banner, no 'Switch to Humor?'. The user must open 'Choose another focus' to find it. The explanatory line 'You rated this 4/10.' stays as is."
-  );
+  // "Not now" hides the card, keeps the focus and survives a reload.
+  await card.getByRole("button", { name: "Not now" }).click();
+  await expect(card).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Sleep & Recovery" })).toBeVisible();
+  expect((await readStore(page, "focus")).dismissedNudge).toEqual({ key: "7-3", score: 2 });
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "This week, tend one thing." })).toBeVisible();
+  await expect(page.locator(".nudge")).toHaveCount(0);
+
+  // It speaks again only when that sub's score changes.
+  await tab(page, "Assess");
+  await rateSub(page, "Leisure & Pleasure", "Humor", 1);
+  await tab(page, "Today");
+  await expect(page.locator(".nudge")).toContainText("Humor is now your lowest (1/10).");
+  await shot(page, testInfo, "S22", "today-again");
+
   expectNoErrors();
 });
 
@@ -191,14 +235,9 @@ test("S23: download a copy, start over, restore on a new device", async ({ page,
   await seed(page, { quick: RETURNING.quick, focus: RETURNING.focus, checkins: RETURNING.checkins, scores: RETURNING.scores });
   await go(page, "/settings");
 
-  const [download] = await Promise.all([
-    page.waitForEvent("download"),
-    page.getByRole("button", { name: "Download a copy" }).click(),
-  ]);
-  expect(download.suggestedFilename()).toBe("life-improver-2026-10-07.json");
-  const file = testInfo.outputPath("copy.json");
-  await download.saveAs(file);
-  const exported = JSON.parse(fs.readFileSync(file, "utf8"));
+  const copy = await downloadJson(page, testInfo, page.getByRole("button", { name: "Download a copy" }), "copy.json");
+  expect(copy.name).toBe("life-improver-2026-10-07.json");
+  const exported = copy.json;
   expect(exported.app).toBe("life-improver");
   expect(exported.schema).toBe(2);
   expect(exported.data.checkins).toHaveLength(2);
@@ -212,9 +251,9 @@ test("S23: download a copy, start over, restore on a new device", async ({ page,
   await expect(page).toHaveURL(/#\/welcome$/);
   expect(await readStore(page, "checkins")).toEqual([]);
   expect(await readStore(page, "focus")).toBeNull();
+  // The welcome screen now offers the way back.
+  await expect(page.getByText("I have a saved copy")).toBeVisible();
   await shot(page, testInfo, "S23", "after-reset");
-  // The welcome screen offers no "I already have a copy" route.
-  await expect(page.getByRole("main").getByText(/restore|already have|saved copy/i)).toHaveCount(0);
 
   // New device: a second, empty browser context with the project's options.
   const { browserName, defaultBrowserType, launchOptions, trace, ...ctxOptions } = testInfo.project.use;
@@ -222,62 +261,83 @@ test("S23: download a copy, start over, restore on a new device", async ({ page,
   try {
     const page2 = await context.newPage();
     const errors2 = trackErrors(page2);
-    page2.on("dialog", (d) => d.accept());
+    const dialogs = [];
+    let dialogAction = "accept";
+    page2.on("dialog", (d) => {
+      dialogs.push(d.message());
+      return dialogAction === "accept" ? d.accept() : d.dismiss();
+    });
     await freezeAt(page2);
     await page2.goto("#/");
     await expect(page2).toHaveURL(/#\/welcome$/);
+    await expect(page2.getByText("I have a saved copy")).toBeVisible();
     await shot(page2, testInfo, "S23", "new-device-welcome");
 
-    // The only way to Settings from the welcome screen is the footer link.
-    await page2.getByRole("link", { name: "Settings & privacy" }).click();
-    await expect(page2.getByRole("heading", { name: "Settings & privacy" })).toBeVisible();
-    await shot(page2, testInfo, "S23", "new-device-settings");
-
+    // One step from the welcome screen: pick the file; the page reloads onto Today.
     const reloaded = page2.waitForEvent("load");
-    await page2.locator('input[type="file"]').setInputFiles(file);
+    await page2.locator('input[type="file"]').setInputFiles(copy.file);
     await reloaded;
-    await expect(page2.getByRole("heading", { name: "Settings & privacy" })).toBeVisible();
+    await expect(page2).toHaveURL(/#\/$/);
+    await expect(page2.getByRole("heading", { name: "Sleep & Recovery" })).toBeVisible();
+    const notice = page2.getByRole("status").filter({ hasText: "Restored 2 check-ins." });
+    await expect(notice).toBeVisible();
     await shot(page2, testInfo, "S23", "after-restore");
-    // No confirmation that anything was restored.
-    await expect(page2.getByRole("main").getByText(/restored|welcome back|imported/i)).toHaveCount(0);
+    // An empty device has nothing to replace, so no confirm dialog was asked.
+    expect(dialogs).toEqual([]);
 
     expect((await readStore(page2, "checkins")).length).toBe(2);
     expect((await readStore(page2, "focus")).subIndex).toBe(2);
     expect(await readStore(page2, "scores")).toEqual({ "1-2": 4 });
 
-    await tab(page2, "Today");
-    await expect(page2.getByRole("heading", { name: "Sleep & Recovery" })).toBeVisible();
-    await shot(page2, testInfo, "S23", "new-device-today");
+    await notice.getByRole("button", { name: "Dismiss" }).click();
+    await expect(notice).toHaveCount(0);
     await tab(page2, "Journey");
-    await expect(page2.getByText("2 check-ins")).toBeVisible();
+    await expect(page2.getByText(/2 check-ins/)).toBeVisible();
     await shot(page2, testInfo, "S23", "new-device-journey");
+
+    // Restoring onto a device that already has data still asks first.
+    await page2.getByRole("link", { name: "Settings", exact: true }).click();
+    await expect(page2.getByRole("heading", { name: "Settings & privacy" })).toBeVisible();
+    dialogAction = "dismiss";
+    const asked = page2.waitForEvent("dialog");
+    await page2.locator('input[type="file"]').setInputFiles(copy.file);
+    expect((await asked).message()).toMatch(/Replace all data on this device/);
+    await expect(page2).toHaveURL(/#\/settings$/);
     errors2.expectNoErrors();
   } finally {
     await context.close();
   }
 
-  friction(
-    testInfo,
-    "On a new device the welcome screen has no 'restore a copy' route: the user must notice the small grey footer link 'Settings & privacy'. After picking the file the page reloads in place on Settings with no 'Restored' message and no move to Today; the confirm dialog says 'Replace all data on this device' even though the device is empty."
-  );
   expectNoErrors();
 });
 
 // ---------- S24 ----------
 
-test("S24: storage throws (private mode)", async ({ page }, testInfo) => {
-  test.setTimeout(60_000);
-  const { expectNoErrors } = trackErrors(page);
-  await freezeAt(page);
-  await page.addInitScript(() => {
+// Every Storage method throws, as in some private modes.
+const blockStorage = (page) =>
+  page.addInitScript(() => {
     const blocked = () => {
       throw new DOMException("The operation is insecure.", "SecurityError");
     };
     for (const m of ["getItem", "setItem", "removeItem", "clear"]) Storage.prototype[m] = blocked;
   });
+
+test("S24: storage throws (private mode)", async ({ page }, testInfo) => {
+  test.setTimeout(60_000);
+  const { expectNoErrors } = trackErrors(page);
+  await freezeAt(page);
+  await blockStorage(page);
   await go(page, "/");
   await expect(page).toHaveURL(/#\/welcome$/);
+
+  // The warning is there from the first screen, with a way to act on it.
+  const banner = page.getByRole("alert").filter({ hasText: "Saving is off in this browser. Download a copy before you leave." });
+  await expect(banner).toBeVisible();
+  await expect(banner.getByRole("button", { name: "Download a copy" })).toBeVisible();
+  await shot(page, testInfo, "S24", "welcome");
+
   await page.getByRole("button", { name: "Begin" }).click();
+  await expect(page).toHaveURL(/#\/welcome\/rate$/);
   for (const label of ["Body & Vitality", "Mind & Learning", "Work & Craft", "Relationships & Love"]) {
     const slider = page.getByRole("slider", { name: label });
     await slider.focus();
@@ -289,13 +349,13 @@ test("S24: storage throws (private mode)", async ({ page }, testInfo) => {
   await expect(page).toHaveURL(/#\/$/);
   await expect(page.getByRole("heading", { name: "This week, tend one thing." })).toBeVisible();
   await expect(page.locator(".fc")).toBeVisible();
+  // The banner stays after the first real action, and cannot be dismissed.
+  await expect(banner).toBeVisible();
+  await expect(banner.getByRole("button", { name: "Dismiss" })).toHaveCount(0);
   await shot(page, testInfo, "S24", "today-in-memory");
 
-  // The app works but never says the data is not being saved.
-  await expect(page.getByText(/private|not (being )?saved|won.t be saved|only in memory|storage is (blocked|unavailable)|will be lost/i)).toHaveCount(0);
-
-  // Check-in works in memory too.
-  await page.getByRole("button", { name: "Check in" }).click();
+  // Check-in works in memory too. It is the first day, so it is an early one.
+  await page.getByRole("link", { name: "Check in early" }).click();
   await page.getByRole("radio", { name: "Yes" }).check();
   await page.getByRole("radio", { name: "5", exact: true }).check();
   await page.getByRole("button", { name: "Save check-in" }).click();
@@ -304,19 +364,27 @@ test("S24: storage throws (private mode)", async ({ page }, testInfo) => {
   await expect(page.getByRole("heading", { name: "Checked in this week" })).toBeVisible();
   await shot(page, testInfo, "S24", "checked-in");
 
-  // Settings: "Download a copy" silently produces an empty file.
   await tab(page, "Journey");
-  await expect(page.getByText("1 check-in")).toBeVisible();
-  await page.getByRole("link", { name: "Settings & privacy" }).click();
-  const [download] = await Promise.all([
-    page.waitForEvent("download"),
-    page.getByRole("button", { name: "Download a copy" }).click(),
-  ]);
-  const file = testInfo.outputPath("blocked-copy.json");
-  await download.saveAs(file);
-  const exported = JSON.parse(fs.readFileSync(file, "utf8"));
-  expect(exported.data.checkins).toEqual([]);
-  expect(exported.data.focus).toBeNull();
+  await expect(page.getByText(/1 check-in/)).toBeVisible();
+  await expect(banner).toBeVisible();
+
+  // "Download a copy" in the banner exports what is in memory.
+  const fromBanner = await downloadJson(page, testInfo, banner.getByRole("button", { name: "Download a copy" }), "banner-copy.json");
+  expect(fromBanner.name).toBe("life-improver-2026-10-07.json");
+  expect(fromBanner.json.data.checkins).toHaveLength(1);
+  expect(fromBanner.json.data.checkins[0]).toMatchObject({ practised: "yes", score: 5 });
+  expect(fromBanner.json.data.focus).not.toBeNull();
+  expect(Object.keys(fromBanner.json.data.quick)).toHaveLength(4);
+  await shot(page, testInfo, "S24", "journey");
+
+  // Settings has its own button, and it exports the same.
+  await page.getByRole("link", { name: "Settings", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Settings & privacy" })).toBeVisible();
+  await expect(banner).toBeVisible();
+  await expect(banner.getByRole("button")).toHaveCount(0);
+  const fromSettings = await downloadJson(page, testInfo, page.getByRole("button", { name: "Download a copy" }), "settings-copy.json");
+  expect(fromSettings.json.data.checkins).toHaveLength(1);
+  expect(fromSettings.json.data.focus).not.toBeNull();
   await shot(page, testInfo, "S24", "settings");
 
   // Reload: everything is gone, back to the newcomer welcome screen.
@@ -327,7 +395,7 @@ test("S24: storage throws (private mode)", async ({ page }, testInfo) => {
 
   friction(
     testInfo,
-    "With storage blocked the whole loop works but nothing tells the user it will vanish: no banner on Today or Settings, and 'Download a copy' saves an EMPTY export (no check-in, no focus) without warning. After reload the user lands on Welcome as a newcomer. Settings still says 'Your garden stays with you'."
+    "With storage blocked the banner is honest and the download works, but it appears on the welcome screen before there is anything to save, with a 'Download a copy' button that would export an empty file.  Settings still says 'Your garden stays with you' under the warning."
   );
   expectNoErrors();
 });
@@ -351,6 +419,11 @@ async function focusInfo(page) {
     if (!visible && el.matches("input[type=radio],input[type=file]")) {
       const lab = el.closest("label");
       if (lab && ring(lab)) { visible = true; how = "label outline"; }
+    }
+    // The skip link shows itself with a 2px border when focused.
+    if (!visible && el.matches(".skip-link") && parseFloat(style(el).borderTopWidth) > 0) {
+      visible = true;
+      how = "border";
     }
     const label =
       el.getAttribute("aria-label") ||
@@ -377,16 +450,14 @@ test("S25: keyboard-only user completes the loop", async ({ page }, testInfo) =>
   await go(page, "/");
   await expect(page).toHaveURL(/#\/welcome$/);
 
-  const stops = [];
   const noRing = [];
   const note = async () => {
     const info = await focusInfo(page);
-    stops.push(info);
     if (!info.visible && info.tag !== "h2" && info.tag !== "main") noRing.push(`${info.tag}[${info.type}] "${info.name}"`);
     return info;
   };
   // Press Tab until the focused element's text matches; return the number of presses.
-  const tabTo = async (pattern, max = 15) => {
+  const tabTo = async (pattern, max = 20) => {
     for (let n = 1; n <= max; n++) {
       await page.keyboard.press("Tab");
       const info = await note();
@@ -398,6 +469,7 @@ test("S25: keyboard-only user completes the loop", async ({ page }, testInfo) =>
   const toBegin = await tabTo(/^Begin$/);
   await shot(page, testInfo, "S25", "welcome-focus");
   await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/#\/welcome\/rate$/);
 
   // Step 2: rate four domains with the arrow keys.
   await expect(page.getByRole("heading", { name: "How does each ground feel?" })).toBeFocused();
@@ -418,8 +490,8 @@ test("S25: keyboard-only user completes the loop", async ({ page }, testInfo) =>
   await expect(page.getByRole("heading", { name: "This week, tend one thing." })).toBeFocused();
   await shot(page, testInfo, "S25", "today");
 
-  // Today > Check in.
-  const toCheckin = await tabTo(/^Check in$/);
+  // Today > Check in early (the first check-in opens on day 3).
+  const toCheckin = await tabTo(/^Check in early$/);
   await page.keyboard.press("Enter");
   await expect(page.getByRole("heading", { name: "Weekly check-in" })).toBeFocused();
   await page.keyboard.press("Tab");
@@ -441,31 +513,47 @@ test("S25: keyboard-only user completes the loop", async ({ page }, testInfo) =>
   await tabTo(/^Keep this practice$/);
   await page.keyboard.press("Enter");
   await expect(page.getByRole("heading", { name: "Checked in this week" })).toBeVisible();
-  expect((await readStore(page, "checkins")).length).toBe(1);
+  const saved = await readStore(page, "checkins");
+  expect(saved).toHaveLength(1);
+  expect(saved[0]).toMatchObject({ practised: "yes", score: 5, note: "Slept better." });
 
-  // Tab stops before the content on a fresh load of Today (no skip link).
+  // A fresh load of Today: the first Tab stop is the skip link, one Enter
+  // moves to the content, and the next Tab lands inside it.
   await page.reload();
   await expect(page.getByRole("heading", { name: "This week, tend one thing." })).toBeVisible();
-  await expect(page.getByRole("link", { name: /skip/i })).toHaveCount(0);
-  let beforeMain = 0;
-  for (; beforeMain < 20; beforeMain++) {
-    await page.keyboard.press("Tab");
-    if ((await focusInfo(page)).inMain) break;
-  }
-  await shot(page, testInfo, "S25", "tab-to-content");
+  await page.keyboard.press("Tab");
+  const skip = await note();
+  expect(skip.name).toBe("Skip to content");
+  expect(skip.visible).toBe(true);
+  await page.keyboard.press("Enter");
+  await expect(page.locator("main")).toBeFocused();
+  await expect(page).toHaveURL(/#\/$/);
+  await page.keyboard.press("Tab");
+  expect((await focusInfo(page)).inMain).toBe(true);
+  await shot(page, testInfo, "S25", "after-skip");
 
-  // Framework accordion headers are clickable divs.
+  // Framework: the accordion header is a real button that opens with Enter,
+  // and the sub names inside are links into Practices.
   await go(page, "/framework");
-  const headerFocusable = await page.locator(".oh").first().evaluate((el) =>
-    el.tabIndex >= 0 || ["BUTTON", "A", "SUMMARY"].includes(el.tagName) || el.hasAttribute("role")
-  );
+  const header = page.locator(".oh").first();
+  expect(await header.evaluate((el) => el.tagName)).toBe("BUTTON");
+  await header.focus();
+  await expect(header).toHaveAttribute("aria-expanded", "false");
+  await page.keyboard.press("Enter");
+  await expect(header).toHaveAttribute("aria-expanded", "true");
+  await page.keyboard.press("Tab");
+  const subLink = await note();
+  expect(subLink.tag).toBe("a");
+  expect(subLink.name).toBe("Movement & Fitness");
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/#\/practices\?d=1&s=0$/);
 
   const ringless = [...new Set(noRing)];
   friction(
     testInfo,
-    `Keyboard loop completes and focus is moved to each new heading. Tab presses: ${toBegin} to Begin, ${toNext} to Next (passes 3 unrated sliders and Back), ${toPlant} to Plant, ${toCheckin} to Check in, ${beforeMain} stops before the first content on Today (no skip link). Controls without an outline ring: ${ringless.join("; ") || "none"}. Framework accordion headers focusable by keyboard: ${headerFocusable}.`
+    `Keyboard loop completes and focus is moved to each new heading. Tab presses: ${toBegin} to Begin, ${toNext} to Next (passes the 3 sliders left unrated and Back), ${toPlant} to Plant, ${toCheckin} to Check in early. The skip link is the first stop on every load. Controls without an outline ring: ${ringless.join("; ") || "none"}.`
   );
-  expect(beforeMain).toBeGreaterThan(3);
+  expect(ringless).toEqual([]);
   expectNoErrors();
 });
 
@@ -537,7 +625,7 @@ test("S26: every route has named controls and a sane heading order", async ({ pa
   const report = {};
   for (const r of routes) {
     await go(page, r);
-    await page.waitForTimeout(150);
+    await expect(page.locator("main h2").first()).toBeVisible();
     if (r === "/assess") await page.getByRole("button", { name: /^Body & Vitality/ }).click();
     if (r === "/practices") {
       await page.getByRole("button", { name: "Body & Vitality" }).click();
@@ -551,17 +639,18 @@ test("S26: every route has named controls and a sane heading order", async ({ pa
     const a = report[r];
     expect(a.unnamed, `unnamed controls on ${r}`).toEqual([]);
     expect(a.h1, `h1 count on ${r}`).toBe(1);
+    expect(a.h2, `h2 count on ${r}`).toBeGreaterThanOrEqual(1);
     expect(a.jumps, `heading level jumps on ${r}`).toEqual([]);
+    expect(a.fake, `clickable non-focusable elements on ${r}`).toEqual([]);
   }
-
-  const noH2 = routes.filter((r) => report[r].h2 === 0);
-  const fake = routes.filter((r) => report[r].fake.length).map((r) => `${r}: ${report[r].fake.join(", ")}`);
   testInfo.annotations.push({ type: "audit", description: JSON.stringify(report) });
-  if (noH2.length) {
-    friction(testInfo, `Routes with no h2 (the page title is a styled <p>, so focus after navigation lands on <main> and the screen reader hears no screen name): ${noH2.join(", ")}.`);
-  }
-  if (fake.length) {
-    friction(testInfo, `Clickable non-focusable elements (mouse only): ${fake.join("; ")}.`);
+
+  // Moving to a screen from the nav puts focus on that screen's title.
+  await go(page, "/");
+  await expect(page.getByRole("heading", { name: "This week, tend one thing." })).toBeVisible();
+  for (const name of ["Journey", "Assess", "Practices", "Today"]) {
+    await tab(page, name);
+    await expect(page.locator("main h2").first()).toBeFocused();
   }
   expectNoErrors();
 });
@@ -580,20 +669,33 @@ test("S27: reach Framework, Sources and Settings", async ({ page }, testInfo) =>
   const viewport = page.viewportSize();
   const mainNav = page.getByRole("navigation", { name: isMobile ? "Primary" : "Main" });
   const bottomTabs = await mainNav.getByRole("link").allInnerTexts();
-  const targets = { Framework: "/framework", Sources: "/sources", "Settings & privacy": "/settings" };
-  const report = {};
 
+  // Settings: the gear in the header is on screen without scrolling, on every size.
+  const gear = page.getByRole("banner").getByRole("link", { name: "Settings", exact: true });
+  await page.evaluate(() => window.scrollTo(0, 0));
+  const gearBox = await gear.boundingBox();
+  expect(gearBox.y + gearBox.height).toBeLessThanOrEqual(viewport.height);
+  expect(gearBox.width).toBeGreaterThanOrEqual(44);
+  expect(gearBox.height).toBeGreaterThanOrEqual(44);
+  await gear.click();
+  await expect(page).toHaveURL(/#\/settings$/);
+  await expect(page.getByRole("heading", { name: "Settings & privacy" })).toBeVisible();
+  await shot(page, testInfo, "S27", "settings");
+
+  // Framework and Sources: tabs on desktop, footer links on a phone.
+  const targets = { Framework: "/framework", Sources: "/sources" };
+  const report = {};
   for (const [label, path] of Object.entries(targets)) {
     await go(page, "/");
     await expect(page.getByRole("heading", { name: "This week, tend one thing." })).toBeVisible();
     await page.evaluate(() => window.scrollTo(0, 0));
     const inNav = await mainNav.getByRole("link", { name: label, exact: true }).count();
-    const link = page.getByRole("navigation", { name: "More" }).getByRole("link", { name: label });
+    const link = isMobile
+      ? page.getByRole("navigation", { name: "More" }).getByRole("link", { name: label })
+      : mainNav.getByRole("link", { name: label, exact: true });
     const box = await link.boundingBox();
-    const belowFold = box.y + box.height > viewport.height;
     const scrollNeeded = Math.round(Math.max(0, box.y + box.height - viewport.height));
-    report[label] = { inNav, belowFold, scrollNeeded, fontSize: await link.evaluate((e) => getComputedStyle(e).fontSize) };
-    // One tap on the footer link (Playwright scrolls and checks nothing covers it).
+    report[label] = { inNav, belowFold: scrollNeeded > 0, scrollNeeded };
     await link.click();
     await expect(page).toHaveURL(new RegExp("#" + path + "$"));
     await shot(page, testInfo, "S27", path.slice(1));
@@ -602,17 +704,15 @@ test("S27: reach Framework, Sources and Settings", async ({ page }, testInfo) =>
   if (isMobile) {
     expect(bottomTabs.map((t) => t.trim())).toEqual(["Today", "Journey", "Assess", "Practices"]);
     for (const label of Object.keys(targets)) expect(report[label].inNav).toBe(0);
-    // Footer links sit below the fold on Today.
+    // Framework and Sources are still only in the footer, below the first screen.
     expect(report.Framework.belowFold).toBe(true);
     friction(
       testInfo,
-      `On a phone the bottom bar has only ${bottomTabs.join(", ")}. Framework, Sources and Settings are reachable only by scrolling Today to the footer (${report.Framework.scrollNeeded}px below the first screen) and tapping a ${report.Framework.fontSize} grey link: one tap after a long scroll, nothing hints they exist. On the welcome screen the same footer is the only way out.`
+      `Settings is now one tap from every screen (gear in the header, icon only on a phone). Framework and Sources are still footer-only on a phone: the bottom bar has ${bottomTabs.join(", ")}, and the links sit ${report.Framework.scrollNeeded}px below the first screen of Today as small grey text. Nothing hints they exist.`
     );
   } else {
     expect(report.Framework.inNav).toBe(1);
     expect(report.Sources.inNav).toBe(1);
-    expect(report["Settings & privacy"].inNav).toBe(0);
-    friction(testInfo, "Desktop: Framework and Sources are tabs; Settings & privacy exists only as a footer link (no tab, no header icon).");
   }
   expectNoErrors();
 });
@@ -624,34 +724,48 @@ test("S28: Framework and Sources link to related practices", async ({ page }, te
   await freezeAt(page);
   await seed(page, { quick: RETURNING.quick, focus: RETURNING.focus, checkins: RETURNING.checkins, scores: RETURNING.scores });
   await go(page, "/framework");
-  await page.locator(".oh").first().click();
-  await expect(page.getByText("Movement & Fitness").first()).toBeVisible();
-  await shot(page, testInfo, "S28", "framework-expanded");
 
   const main = page.getByRole("main");
-  // No links or buttons inside the expanded domain to practices or to Today.
-  await expect(main.locator(".ob a, .ob button")).toHaveCount(0);
-  await expect(main.locator("a[href*='practices'], a[href='#/']")).toHaveCount(0);
-  // Clicking a sub name does nothing.
-  await page.locator(".os").first().click();
-  await expect(page).toHaveURL(/#\/framework$/);
+  const header = page.locator(".oh").first();
+  await expect(header).toHaveAttribute("aria-expanded", "false");
+  await expect(main.locator(".ob a")).toHaveCount(0);
+  await header.click();
+  await expect(header).toHaveAttribute("aria-expanded", "true");
+  await expect(main.locator(".ob a")).toHaveCount(domainOf(1).subs.length);
+  await shot(page, testInfo, "S28", "framework-expanded");
 
+  // Every sub name is a link to that sub's practices.
+  for (const [si, sub] of domainOf(1).subs.entries()) {
+    await expect(main.getByRole("link", { name: sub.name, exact: true })).toHaveAttribute("href", `#/practices?d=1&s=${si}`);
+  }
+
+  // Following the third one lands on Practices with that sub open and its list showing.
+  await main.getByRole("link", { name: "Sleep & Recovery", exact: true }).click();
+  await expect(page).toHaveURL(/#\/practices\?d=1&s=2$/);
+  await expect(page.locator(".dp.a")).toHaveText("Body & Vitality");
+  await expect(page.locator(".sp.a")).toHaveText("Sleep & Recovery");
+  await expect(page.locator(".ir")).toHaveCount(10);
+  await expect(page.locator(".ir").first().locator(".cat-tag")).toHaveText("This week");
+  await shot(page, testInfo, "S28", "practices-from-framework");
+
+  // Back returns to Framework.
+  await page.goBack();
+  await expect(page).toHaveURL(/#\/framework$/);
+  const stillOpen = (await page.locator(".oh").first().getAttribute("aria-expanded")) === "true";
+
+  // Sources: a link to Practices at the top; the prose mapping stays prose.
   await go(page, "/sources");
   await expect(page.getByText(/sources ·/)).toBeVisible();
   await shot(page, testInfo, "S28", "sources");
-  await expect(main.getByRole("link")).toHaveCount(0);
-  await expect(main.getByRole("button")).toHaveCount(0);
-  // The mapping lives in prose ("Referenced in ... practices") only.
   const mapped = await main.getByText(/Referenced in .* practices/i).count();
 
-  // A hash query does not deep-link into Practices.
+  // The old query form is still ignored.
   await go(page, "/practices?domain=1&sub=2");
   await expect(page.getByText("Pick a domain.")).toBeVisible();
-  await shot(page, testInfo, "S28", "practices-no-deeplink");
 
   friction(
     testInfo,
-    `Framework (expanded domain, sub descriptions) and Sources (${mapped} notes say 'Referenced in ... practices') contain zero links or buttons; a sub name is plain text. To reach that sub's practices the user must leave, open Practices, then re-pick the domain pill and the sub pill; #/practices?domain=1&sub=2 is ignored. Nothing offers 'Practise this' or 'See practices'.`
+    `Framework sub names now link straight into Practices. Remaining: Back from Practices returns to Framework with the domain ${stillOpen ? "still open" : "collapsed again, so the person has to re-open it to pick the next sub"}. Sources has ${mapped} notes saying 'Referenced in ... practices' that stay plain text; the link to the sub they name is not there.`
   );
   expectNoErrors();
 });
@@ -683,37 +797,59 @@ test("S29: damaged storage shows a recovery path", async ({ page }, testInfo) =>
   await seedRaw(page, raw);
   await go(page, "/journey");
   await expect(page.getByRole("heading", { name: "Journey" })).toBeVisible();
-  await shot(page, testInfo, "S29", "journey");
 
-  // Only the valid entry survives; the user is told nothing.
-  await expect(page.getByText("1 check-in")).toBeVisible();
-  await expect(page.getByText(/damaged|corrupt|could not be read|recover(?!y)|went wrong/i)).toHaveCount(0);
-  const bad = await page.evaluate((k) => localStorage.getItem(k), KEYS.checkins + ":bad");
-  expect(bad).toBe(raw[KEYS.checkins]); // the raw text is kept for later
+  // Only the valid entry survives, and the person is told.
+  await expect(page.getByText(/1 check-in/)).toBeVisible();
+  const notice = page.getByRole("status").filter({ hasText: "Some saved data could not be read." });
+  await expect(notice).toBeVisible();
+  await expect(notice.getByRole("link", { name: "Open Settings" })).toBeVisible();
+  await shot(page, testInfo, "S29", "journey");
+  expect(await page.evaluate((k) => localStorage.getItem(k), KEYS.checkins + ":bad")).toBe(raw[KEYS.checkins]);
+  expect(await page.evaluate((k) => localStorage.getItem(k), KEYS.scores + ":bad")).toBe(raw[KEYS.scores]);
   expect(await readStore(page, "scores")).toEqual({ "1-2": 4 });
 
+  // Today carries it too.
   await go(page, "/");
+  await expect(page.getByRole("heading", { name: "This week, tend one thing." })).toBeVisible();
+  await expect(notice).toBeVisible();
   await shot(page, testInfo, "S29", "today");
-  await expect(page.getByText(/damaged|corrupt|could not be read|recover(?!y)/i)).toHaveCount(0);
 
-  await page.getByRole("link", { name: "Settings & privacy" }).click();
+  // The link leads to Settings, which offers the damaged copy.
+  await notice.getByRole("link", { name: "Open Settings" }).click();
   await expect(page.getByRole("heading", { name: "Settings & privacy" })).toBeVisible();
+  await expect(page.getByText("Some saved data could not be read, and a copy of it was kept.")).toBeVisible();
   await shot(page, testInfo, "S29", "settings");
-  // Settings mentions neither the backup copy nor a way to use it.
-  await expect(page.getByRole("main").getByText(/damaged|corrupt|backup|recover(?!y)|:bad/i)).toHaveCount(0);
+  const damaged = await downloadJson(page, testInfo, page.getByRole("button", { name: "Download the damaged copy" }), "damaged.json");
+  expect(damaged.name).toBe("life-improver-damaged-2026-10-07.json");
+  expect(damaged.json).toMatchObject({ app: "life-improver", kind: "damaged-copy" });
+  expect(damaged.json.copies[KEYS.checkins + ":bad"]).toBe(raw[KEYS.checkins]);
+  expect(damaged.json.copies[KEYS.scores + ":bad"]).toBe(raw[KEYS.scores]);
+
+  // Dismissing hides the notice for the visit.
+  await go(page, "/journey");
+  await notice.getByRole("button", { name: "Dismiss" }).click();
+  await expect(notice).toHaveCount(0);
+  await tab(page, "Today");
+  await expect(notice).toHaveCount(0);
+
+  // After a reload the data has been trimmed for good, the notice does not
+  // return, but the damaged copy is still on offer in Settings.
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "This week, tend one thing." })).toBeVisible();
+  await expect(notice).toHaveCount(0);
+  await page.getByRole("link", { name: "Settings", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Download the damaged copy" })).toBeVisible();
 
   friction(
     testInfo,
-    "Damaged data is trimmed silently: a malformed check-in and two bad scores vanish, Journey says '1 check-in' with no warning, and the raw text saved under life-improver:checkins:v1:bad is invisible and unreachable from Settings. There is no message and no link to Settings or a 'download the damaged copy' action."
+    "The notice says what happened but not what was lost: the person is not told that one check-in and two scores were dropped, and the damaged file has no way back in (Restore only accepts a normal copy)."
   );
   expectNoErrors();
 });
 
 test("S29b: unparsable JSON is backed up before it is overwritten", async ({ page }, testInfo) => {
-  // BUG (unfixed): usePersistentState.load() returns early from its catch block when
-  // JSON.parse throws, so the ":bad" backup is never written and the effect then
-  // overwrites the broken text with the empty default. The user's data is gone.
-  test.fail();
+  // Fixed in v2.1 (D1): the broken text is copied to ":bad" before the default replaces it.
+  const { expectNoErrors } = trackErrors(page);
   await freezeAt(page);
   const broken = '{"1-2": 4, "1-3": ';
   await seedRaw(page, { [KEYS.scores]: broken, [KEYS.quick]: JSON.stringify(RETURNING.quick) });
@@ -722,4 +858,280 @@ test("S29b: unparsable JSON is backed up before it is overwritten", async ({ pag
   await shot(page, testInfo, "S29b", "assess");
   const backup = await page.evaluate((k) => localStorage.getItem(k), KEYS.scores + ":bad");
   expect(backup).toBe(broken);
+  // The person is told, and the broken text is on offer in Settings.
+  await expect(page.getByRole("status").filter({ hasText: "Some saved data could not be read." })).toBeVisible();
+  await page.getByRole("link", { name: "Settings", exact: true }).click();
+  const damaged = await downloadJson(page, testInfo, page.getByRole("button", { name: "Download the damaged copy" }), "broken.json");
+  expect(damaged.json.copies[KEYS.scores + ":bad"]).toBe(broken);
+  expectNoErrors();
+});
+
+// ---------- S50 ----------
+
+test("S50: Practices deep link ?d=&s= selects the domain and sub", async ({ page }, testInfo) => {
+  const { expectNoErrors } = trackErrors(page);
+  await freezeAt(page);
+  await seed(page, { quick: RETURNING.quick, focus: RETURNING.focus, checkins: RETURNING.checkins, scores: RETURNING.scores });
+
+  // A valid link opens that domain and sub with its rows showing.
+  await go(page, "/practices?d=3&s=2");
+  await expect(page.locator(".dp.a")).toHaveText("Work & Craft");
+  await expect(page.locator(".sp.a")).toHaveText(subOf(3, 2).name);
+  await expect(page.locator(".ir")).toHaveCount(subOf(3, 2).ideas.length);
+  await expect(page.locator(".ir").first().locator(".cat-text")).toHaveText(subOf(3, 2).ideas[0]);
+  await shot(page, testInfo, "S50", "deep-link");
+
+  // Following another link while the screen is open moves the selection.
+  await go(page, "/practices?d=5&s=1");
+  await expect(page.locator(".dp.a")).toHaveText("Community & Belonging");
+  await expect(page.locator(".sp.a")).toHaveText(subOf(5, 1).name);
+
+  // A domain without a sub opens the first sub; a bad sub falls back to the first.
+  for (const q of ["d=2", "d=2&s=99", "d=2&s=-1", "d=2&s=abc"]) {
+    await go(page, "/practices?" + q);
+    await expect(page.locator(".dp.a")).toHaveText("Mind & Learning");
+    await expect(page.locator(".sp.a")).toHaveText(subOf(2, 0).name);
+  }
+
+  // An unknown domain, or the old parameter names, show the plain picker.
+  for (const q of ["d=99&s=1", "domain=1&sub=2"]) {
+    await go(page, "/practices?" + q);
+    await page.reload(); // a fresh visit: an open screen keeps its earlier selection
+    await expect(page.getByText("Pick a domain.")).toBeVisible();
+    await expect(page.locator(".dp.a")).toHaveCount(0);
+  }
+  await shot(page, testInfo, "S50", "unknown-domain");
+
+  // The last domain on a phone sits in a horizontal scroller.
+  await go(page, "/practices?d=7&s=3");
+  await expect(page.locator(".sp.a")).toHaveText("Humor");
+  const activePillInView = await page.locator(".dp.a").evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    return r.left >= 0 && r.right <= window.innerWidth;
+  });
+  await shot(page, testInfo, "S50", "last-domain");
+
+  // Picking another pill by hand leaves the address as it was.
+  await page.getByRole("button", { name: "Mind & Learning", exact: true }).click();
+  await expect(page.locator(".dp.a")).toHaveText("Mind & Learning");
+  const urlAfterClick = page.url();
+  await page.reload();
+  await expect(page.locator(".dp.a")).toHaveText("Leisure & Pleasure");
+
+  friction(
+    testInfo,
+    `On the deep link the selected domain pill is ${activePillInView ? "in view" : "scrolled out of view on this screen, so the person cannot see which domain is open"}. Choosing another pill by hand does not update the address (${urlAfterClick.split("#")[1]}), so a reload or a shared link returns to the earlier selection.`
+  );
+  expectNoErrors();
+});
+
+// ---------- S51 ----------
+
+test("S51: skip link and the Settings gear on every screen", async ({ page }, testInfo) => {
+  test.setTimeout(60_000);
+  const { expectNoErrors } = trackErrors(page);
+  await freezeAt(page);
+  await seed(page, { quick: RETURNING.quick, focus: RETURNING.focus, checkins: RETURNING.checkins, scores: RETURNING.scores });
+  const viewport = page.viewportSize();
+
+  const routes = ["/", "/journey", "/assess", "/practices", "/framework", "/sources", "/checkin", "/settings", "/welcome"];
+  for (const r of routes) {
+    await go(page, r);
+    await page.reload();
+    await expect(page.locator("main h2").first()).toBeVisible();
+
+    // The gear: in the header, a 44px target, labelled.
+    const gear = page.getByRole("banner").getByRole("link", { name: "Settings", exact: true });
+    await expect(gear).toBeVisible();
+    const box = await gear.boundingBox();
+    expect(box.y + box.height, `gear inside first screen on ${r}`).toBeLessThanOrEqual(viewport.height);
+    expect(box.width).toBeGreaterThanOrEqual(44);
+    expect(box.height).toBeGreaterThanOrEqual(44);
+    if (r === "/settings") await expect(gear).toHaveAttribute("aria-current", "page");
+    else await expect(gear).not.toHaveAttribute("aria-current", "page");
+
+    // The skip link: first stop on the page, on screen once focused.
+    await page.keyboard.press("Tab");
+    const skip = page.getByRole("link", { name: "Skip to content" });
+    await expect(skip).toBeFocused();
+    const sb = await skip.boundingBox();
+    expect(sb.y).toBeGreaterThanOrEqual(0);
+    expect(sb.x).toBeGreaterThanOrEqual(0);
+    if (r === "/") await shot(page, testInfo, "S51", "skip-focused");
+    // Enter moves focus to the content and leaves the route alone.
+    await page.keyboard.press("Enter");
+    await expect(page.locator("main")).toBeFocused();
+    expect(page.url().split("#")[1]).toBe(r);
+  }
+
+  // The gear leads to Settings from a deep screen, with focus on its title.
+  await go(page, "/journey");
+  await page.getByRole("banner").getByRole("link", { name: "Settings", exact: true }).click();
+  await expect(page).toHaveURL(/#\/settings$/);
+  await expect(page.getByRole("heading", { name: "Settings & privacy" })).toBeFocused();
+  // The wordmark leads home.
+  await page.getByRole("banner").getByRole("link", { name: "Life Improver" }).click();
+  await expect(page).toHaveURL(/#\/$/);
+  await shot(page, testInfo, "S51", "home");
+  expectNoErrors();
+});
+
+// ---------- S52 ----------
+
+test("S52: Assess 'Make this my focus' plants a sub and goes to Today", async ({ page }, testInfo) => {
+  const { expectNoErrors } = trackErrors(page);
+  await freezeAt(page);
+  // Sleep & Recovery (focus) 4, Family of Origin 3, Humor 2.
+  await seed(page, {
+    quick: RETURNING.quick,
+    focus: RETURNING.focus,
+    checkins: RETURNING.checkins,
+    scores: { "1-2": 4, "4-1": 3, "7-3": 2 },
+  });
+  await go(page, "/assess");
+  await expect(page.getByText("Focus here")).toBeVisible();
+  await shot(page, testInfo, "S52", "assess");
+
+  // The current focus has no button; the other two do.
+  await expect(page.getByRole("button", { name: "Make this my focus: Sleep & Recovery" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Make this my focus: Humor" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Make this my focus: Family of Origin" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "See this week's focus" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Make this my focus: Family of Origin" }).click();
+  await expect(page).toHaveURL(/#\/$/);
+  await expect(page.getByRole("heading", { name: "Family of Origin" })).toBeVisible();
+  await expect(page.getByText("You chose this place to begin.")).toBeVisible();
+  const focus = await readStore(page, "focus");
+  expect(focus).toMatchObject({ domainId: 4, subIndex: 1, origin: "picked", startedAt: "2026-10-07", skipped: [] });
+  expect(typeof focus.practiceIndex).toBe("number");
+  expect(subOf(4, 1).ideas[focus.practiceIndex]).toBeTruthy();
+  await expect(page.locator(".fc-practice")).toHaveText(subOf(4, 1).ideas[focus.practiceIndex]);
+  // Humor (2) is one lower than the new focus (3): too close to ask about.
+  await expect(page.locator(".nudge")).toHaveCount(0);
+  await shot(page, testInfo, "S52", "today");
+
+  // Back in Assess the buttons have swapped places.
+  await tab(page, "Assess");
+  await expect(page.getByRole("button", { name: "Make this my focus: Family of Origin" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Make this my focus: Sleep & Recovery" })).toBeVisible();
+
+  // And "See this week's focus" goes to Today without changing anything.
+  await page.getByRole("button", { name: "See this week's focus" }).click();
+  await expect(page).toHaveURL(/#\/$/);
+  expect(await readStore(page, "focus")).toEqual(focus);
+  expectNoErrors();
+});
+
+// ---------- S53 ----------
+
+test("S53: writes blocked after load: banner stays, download keeps the in-memory state", async ({ page }, testInfo) => {
+  const { expectNoErrors } = trackErrors(page);
+  await freezeAt(page);
+  // Existing data is readable, but every write throws (a full or locked store).
+  await page.addInitScript(([entries, keys]) => {
+    if (!sessionStorage.getItem("__seeded")) {
+      sessionStorage.setItem("__seeded", "1");
+      localStorage.clear();
+      for (const [name, value] of Object.entries(entries)) localStorage.setItem(keys[name], JSON.stringify(value));
+    }
+    Storage.prototype.setItem = () => {
+      throw new DOMException("The quota has been exceeded.", "QuotaExceededError");
+    };
+  }, [{ quick: RETURNING.quick, focus: RETURNING.focus, checkins: RETURNING.checkins, scores: RETURNING.scores }, KEYS]);
+  await go(page, "/");
+  await expect(page.getByRole("heading", { name: "Sleep & Recovery" })).toBeVisible();
+
+  const banner = page.getByRole("alert").filter({ hasText: "Saving is off in this browser. Download a copy before you leave." });
+  await expect(banner).toBeVisible();
+  await shot(page, testInfo, "S53", "today");
+
+  // The banner follows the person across screens.
+  for (const name of ["Journey", "Assess", "Practices"]) {
+    await tab(page, name);
+    await expect(banner).toBeVisible();
+  }
+
+  // A change made now lives in memory only, and the banner's download carries it.
+  await openSub(page, "Body & Vitality", "Sleep & Recovery");
+  await page.locator(".ir").nth(4).getByRole("button", { name: "Practise this week" }).click();
+  await expect(page).toHaveURL(/#\/$/);
+  await expect(page.locator(".fc-practice")).toHaveText(subOf(1, 2).ideas[4]);
+  await expect(banner).toBeVisible();
+  const copy = await downloadJson(page, testInfo, banner.getByRole("button", { name: "Download a copy" }), "memory-copy.json");
+  expect(copy.json.data.focus).toMatchObject({ domainId: 1, subIndex: 2, practiceIndex: 4, origin: "practice" });
+  expect(copy.json.data.checkins).toHaveLength(2);
+  expect(copy.json.data.scores).toEqual({ "1-2": 4 });
+  // The disk copy was never updated.
+  expect(await readStore(page, "focus")).toMatchObject({ practiceIndex: 0 });
+  await shot(page, testInfo, "S53", "downloaded");
+  expectNoErrors();
+});
+
+// ---------- S54 ----------
+
+test("S54: Sources leads on to the practices", async ({ page }, testInfo) => {
+  const { expectNoErrors } = trackErrors(page);
+  await freezeAt(page);
+  await seed(page, { quick: RETURNING.quick, focus: RETURNING.focus, checkins: RETURNING.checkins, scores: RETURNING.scores });
+  await go(page, "/sources");
+  const main = page.getByRole("main");
+  await expect(page.getByRole("heading", { name: "The thinking behind it." })).toBeVisible();
+  await expect(page.getByText(/sources ·/)).toBeVisible();
+
+  // One link, near the top, before the first discipline.
+  const link = main.getByRole("link", { name: "Browse the practices" });
+  await expect(main.getByRole("link")).toHaveCount(1);
+  const box = await link.boundingBox();
+  expect(box.height).toBeGreaterThanOrEqual(44);
+  expect(box.y).toBeLessThan(page.viewportSize().height);
+  await shot(page, testInfo, "S54", "sources");
+
+  await link.click();
+  await expect(page).toHaveURL(/#\/practices$/);
+  await expect(page.getByText("Pick a domain.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: /ways forward/ })).toBeFocused();
+  await shot(page, testInfo, "S54", "practices");
+
+  friction(
+    testInfo,
+    "The link goes to the bare Practices screen ('Pick a domain.'), while each source note names the sub it supports ('Referenced in Sleep & Recovery practices'). A person reading about one source cannot jump to that sub's list."
+  );
+  expectNoErrors();
+});
+
+// ---------- S55 ----------
+
+test("S55: adopt a practice from another domain via the Practices deep link", async ({ page }, testInfo) => {
+  const { expectNoErrors } = trackErrors(page);
+  await freezeAt(page);
+  await seed(page, { quick: RETURNING.quick, focus: RETURNING.focus, checkins: RETURNING.checkins, scores: RETURNING.scores });
+  await go(page, "/practices?d=2&s=1");
+  await expect(page.locator(".sp.a")).toHaveText(subOf(2, 1).name);
+  // Nothing in this sub is in use: no tag anywhere on the list.
+  await expect(page.locator(".cat-tag")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^Practise this week/ })).toHaveCount(10);
+  await shot(page, testInfo, "S55", "list");
+
+  const idx = 2;
+  await page.locator(".ir").nth(idx).getByRole("button", { name: "Practise this week" }).click();
+  await expect(page).toHaveURL(/#\/$/);
+  await expect(page.getByRole("heading", { name: subOf(2, 1).name })).toBeVisible();
+  await expect(page.locator(".fc-practice")).toHaveText(subOf(2, 1).ideas[idx]);
+  await expect(page.getByText("You chose this place to begin.")).toBeVisible();
+  expect(await readStore(page, "focus")).toMatchObject({ domainId: 2, subIndex: 1, practiceIndex: idx, origin: "practice", skipped: [] });
+  // A new sub starts a new first week; earlier check-ins stay in the Journey.
+  await expect(page.getByText("Your first check-in opens Saturday.")).toBeVisible();
+  await expect(page.locator(".nudge")).toHaveCount(0);
+  await shot(page, testInfo, "S55", "today");
+
+  await page.getByRole("button", { name: "Choose another focus" }).click();
+  await expect(page.locator(".fp")).toBeVisible();
+  await expect(page.locator(".fp").getByRole("button", { name: /practice/i })).toHaveCount(0);
+  await shot(page, testInfo, "S55", "picker");
+
+  await tab(page, "Journey");
+  await expect(page.getByText(/2 check-ins/)).toBeVisible();
+  await expect(page.getByRole("main").getByText("Sleep & Recovery").first()).toBeVisible();
+  expectNoErrors();
 });
