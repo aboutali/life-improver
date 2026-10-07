@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { FRAMEWORK } from "../data/framework.js";
 import { parseLocalDate } from "../lib/dates.js";
-import { changeSinceFirst, seriesFor, weeksActive } from "../lib/trends.js";
+import { changeSinceFirst, weeksActive } from "../lib/trends.js";
+import { MAX_WEEKS, groupLogByWeek, isNewcomer, weeklySeriesFor } from "../lib/journey.js";
 import Sparkline from "./Sparkline.jsx";
 
 const PRACTISED_LABEL = { yes: "Practised", some: "Practised some", no: "Not this week" };
@@ -18,8 +20,9 @@ function formatDate(value) {
 
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 
-export default function Journey({ checkins }) {
+export default function Journey({ scores, quick, checkins }) {
   const list = checkins.checkins;
+  const [showAll, setShowAll] = useState(false);
 
   if (!list.length) {
     return (
@@ -30,9 +33,15 @@ export default function Journey({ checkins }) {
         <p style={{ fontSize: 14, color: "#666", marginBottom: 20 }}>
           Nothing here yet. After your first weekly check-in, the line of your progress begins.
         </p>
-        <a href="#/checkin" className="btn btn-primary jr-link">
-          Make a first check-in
-        </a>
+        {isNewcomer(quick?.quick, scores?.scoredCount) ? (
+          <a href="#/welcome" className="btn btn-primary jr-link">
+            Begin with a one-minute welcome
+          </a>
+        ) : (
+          <a href="#/checkin" className="btn btn-primary jr-link">
+            Make a first check-in
+          </a>
+        )}
       </div>
     );
   }
@@ -40,12 +49,13 @@ export default function Journey({ checkins }) {
   const rows = [];
   FRAMEWORK.forEach((d) => {
     d.subs.forEach((s, si) => {
-      const series = seriesFor(list, d.id, si);
+      const series = weeklySeriesFor(list, d.id, si);
       if (series.length) rows.push({ key: `${d.id}-${si}`, domain: d.domain, sub: s.name, series });
     });
   });
 
-  const log = [...list].reverse();
+  const weeks = groupLogByWeek(list);
+  const shownWeeks = showAll ? weeks : weeks.slice(0, MAX_WEEKS);
   const nameOf = (c) => FRAMEWORK.find((d) => d.id === c.domainId)?.subs[c.subIndex]?.name ?? "Unknown practice area";
   const practiceOf = (c) => FRAMEWORK.find((d) => d.id === c.domainId)?.subs[c.subIndex]?.ideas[c.practiceIndex];
 
@@ -85,21 +95,39 @@ export default function Journey({ checkins }) {
       <h3 style={{ fontSize: 12, fontWeight: 600, color: "#666", textTransform: "uppercase", letterSpacing: 0.5, margin: "24px 0 8px" }}>
         Log
       </h3>
-      <ul className="cd" style={{ padding: 0, listStyle: "none" }}>
-        {log.map((c) => (
-          <li key={c.id} className="jr-log">
-            <div className="jr-log-head">
-              <span style={{ color: "#666", fontSize: 13 }}>{formatDate(c.date)}</span>
-              <span style={{ fontWeight: 600, color: "#1A1A1A" }}>{nameOf(c)}</span>
-            </div>
-            <p style={{ fontSize: 14, color: "#444" }}>
-              {PRACTISED_LABEL[c.practised] ?? c.practised} · Score {c.score}
-            </p>
-            {c.note && <p style={{ fontSize: 14, color: "#333", marginTop: 4, whiteSpace: "pre-wrap" }}>{c.note}</p>}
-            {practiceOf(c) && <p style={{ fontSize: 12, color: "#666", marginTop: 4 }}>{practiceOf(c)}</p>}
-          </li>
-        ))}
-      </ul>
+      {shownWeeks.map((w) => (
+        <section key={w.week} aria-labelledby={`jr-w-${w.week}`}>
+          <h4 id={`jr-w-${w.week}`} className="jr-week">
+            {w.heading}
+          </h4>
+          <ul className="cd" style={{ padding: 0, listStyle: "none" }}>
+            {w.entries.map(({ checkin: c, later }) => (
+              <li key={c.id} className="jr-log">
+                <div className="jr-log-head">
+                  <span style={{ color: "#666", fontSize: 13 }}>{formatDate(c.date)}</span>
+                  <span style={{ fontWeight: 600, color: "#1A1A1A" }}>{nameOf(c)}</span>
+                  {later && <span className="jr-later">Added later</span>}
+                </div>
+                <p style={{ fontSize: 14, color: "#444" }}>
+                  {PRACTISED_LABEL[c.practised] ?? c.practised} · Score {c.score}
+                </p>
+                {c.note && <p style={{ fontSize: 14, color: "#333", marginTop: 4, whiteSpace: "pre-wrap" }}>{c.note}</p>}
+                {practiceOf(c) && <p style={{ fontSize: 12, color: "#666", marginTop: 4 }}>{practiceOf(c)}</p>}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
+      {weeks.length > MAX_WEEKS && (
+        <button
+          type="button"
+          className="btn jr-more"
+          aria-expanded={showAll}
+          onClick={() => setShowAll((v) => !v)}
+        >
+          Show earlier weeks
+        </button>
+      )}
     </div>
   );
 }

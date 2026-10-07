@@ -4,6 +4,7 @@ import { isoWeek } from "../lib/dates.js";
 import { useToday } from "../hooks/useToday.js";
 import { changeSinceFirst, hasCheckinThisWeek, seriesFor } from "../lib/trends.js";
 import { nextPractice } from "../lib/recommend.js";
+import { isNewcomer, nextCheckinDate, weekdayName } from "../lib/journey.js";
 import Sparkline from "./Sparkline.jsx";
 
 const MAX_NOTE = 500;
@@ -24,7 +25,8 @@ function formatChange(change) {
 }
 
 // A gentle line for each outcome. Never shaming.
-function rewardLine(change) {
+function rewardLine(change, practised) {
+  if (practised === "no") return "A week without it happens. Smaller is fine.";
   if (change === null) return "A first mark on the page. Now there is a line to follow.";
   if (change > 0) return "Higher than where you began. Notice what helped.";
   if (change < 0) return "Lower than where you began. That is honest information, not a verdict.";
@@ -55,7 +57,7 @@ function Segmented({ legend, name, options, value, onChange, className = "" }) {
 
 // The reward view takes focus on mount so the save is announced and the
 // keyboard is not left on a button that has just disappeared.
-function Reward({ result, sub, onKeep, onSwap }) {
+function Reward({ result, sub, today, onKeep, onSwap }) {
   const headingRef = useRef(null);
   useEffect(() => {
     headingRef.current?.focus();
@@ -67,7 +69,7 @@ function Reward({ result, sub, onKeep, onSwap }) {
         Check-in saved
       </h2>
       <p className="sf" style={{ fontSize: "var(--fs-lead)", color: "#1A1A1A", maxWidth: 420, margin: "0 auto 20px" }}>
-        {rewardLine(change)}
+        {rewardLine(change, result.practised)}
       </p>
       <p style={{ fontSize: 13, color: "#888" }}>{sub.name}</p>
       <p className="sf" style={{ fontSize: "var(--fs-display)", lineHeight: 1.1, color: "#2B6CB0" }}>
@@ -79,29 +81,32 @@ function Reward({ result, sub, onKeep, onSwap }) {
           {formatChange(change)} since your first check-in
         </p>
       )}
-      <div style={{ display: "flex", justifyContent: "center", margin: "16px 0 24px" }}>
+      <div style={{ display: "flex", justifyContent: "center", margin: "16px 0 12px" }}>
         <Sparkline series={result.series} width={200} height={48} label={sub.name} />
       </div>
+      <p style={{ fontSize: 14, color: "#555", marginBottom: 20 }}>
+        Next check-in: {weekdayName(nextCheckinDate(today))}
+      </p>
       <div className="ci-actions" style={{ justifyContent: "center" }}>
         <button type="button" className="btn btn-primary" onClick={onKeep}>
           Keep this practice
         </button>
         <button type="button" className="btn" onClick={onSwap}>
-          Swap practice
+          {result.practised === "no" ? "Try a smaller practice" : "Try a different practice"}
         </button>
       </div>
     </div>
   );
 }
 
-export default function CheckIn({ scores, focus, checkins, navigate }) {
+export default function CheckIn({ scores, quick, focus, checkins, navigate }) {
   const f = focus.focus;
   const domain = f ? FRAMEWORK.find((d) => d.id === f.domainId) : null;
   const sub = domain ? domain.subs[f.subIndex] : null;
   const today = useToday();
 
   const [practised, setPractised] = useState(null);
-  const [score, setScore] = useState(() => (sub ? scores.get(f.domainId, f.subIndex) : null));
+  const [score, setScore] = useState(null);
   const [note, setNote] = useState("");
   const [result, setResult] = useState(null);
 
@@ -114,9 +119,15 @@ export default function CheckIn({ scores, focus, checkins, navigate }) {
         <p style={{ fontSize: 14, color: "#666", marginBottom: 20 }}>
           A check-in looks back at one practice. Choose a focus, and come back when the week has had its say.
         </p>
-        <button type="button" className="btn btn-primary" onClick={() => navigate("/")}>
-          Choose a focus first
-        </button>
+        {isNewcomer(quick?.quick, scores.scoredCount) ? (
+          <a href="#/welcome" className="btn btn-primary ci-link">
+            Begin with a one-minute welcome
+          </a>
+        ) : (
+          <a href="#/" className="btn btn-primary ci-link">
+            Choose a focus first
+          </a>
+        )}
       </div>
     );
   }
@@ -128,6 +139,10 @@ export default function CheckIn({ scores, focus, checkins, navigate }) {
       : 0;
   const practice = sub.ideas[practiceIndex];
   const already = hasCheckinThisWeek(checkins.checkins, today);
+  const lastScore =
+    scores.get(f.domainId, f.subIndex) ??
+    seriesFor(checkins.checkins, f.domainId, f.subIndex).at(-1)?.score ??
+    null;
   const ready = practised !== null && score !== null;
 
   const save = (e) => {
@@ -148,7 +163,7 @@ export default function CheckIn({ scores, focus, checkins, navigate }) {
     scores.set(f.domainId, f.subIndex, score);
     // Hook state updates asynchronously, so build the series from the list we know.
     const updated = [...checkins.checkins, entry];
-    setResult({ score, updated, series: seriesFor(updated, f.domainId, f.subIndex) });
+    setResult({ score, practised, updated, series: seriesFor(updated, f.domainId, f.subIndex) });
   };
 
   if (result) {
@@ -156,6 +171,7 @@ export default function CheckIn({ scores, focus, checkins, navigate }) {
       <Reward
         result={result}
         sub={sub}
+        today={today}
         onKeep={() => navigate("/")}
         onSwap={() => {
           focus.setFocus(nextPractice({ ...f, practiceIndex }, FRAMEWORK, result.updated, today));
@@ -194,8 +210,17 @@ export default function CheckIn({ scores, focus, checkins, navigate }) {
           onChange={setPractised}
         />
 
-        <fieldset className="ci-q ci-scale" role="radiogroup">
+        <fieldset
+          className="ci-q ci-scale"
+          role="radiogroup"
+          aria-describedby={lastScore ? "ci-last" : undefined}
+        >
           <legend className="ci-legend">How is {sub.name} now?</legend>
+          {lastScore && (
+            <p id="ci-last" className="ci-last">
+              Last time: {lastScore}
+            </p>
+          )}
           <div className="ci-scores">
             {SCORES.map((n) => (
               <label key={n} className="ci-opt">
@@ -222,7 +247,7 @@ export default function CheckIn({ scores, focus, checkins, navigate }) {
           </label>
           <textarea
             id="ci-note"
-            className="input"
+            className="input ci-note"
             rows={3}
             maxLength={MAX_NOTE}
             value={note}
