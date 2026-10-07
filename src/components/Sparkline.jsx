@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import { parseLocalDate } from "../lib/dates.js";
 
 const PAD = 5;
@@ -12,7 +13,24 @@ function shortDate(value) {
 
 // Tiny inline SVG line of scores over time. Scale is fixed at 1..10 so lines
 // from different subs read alike. `series` is [{ date, score }], oldest first.
-export default function Sparkline({ series = [], width = 120, height = 36, label }) {
+// The line fills the width of its container: the box is measured and the SVG
+// drawn at that pixel width, so dots stay round and strokes stay crisp.
+// `width` is only the first guess before measuring (and the size in jsdom).
+export default function Sparkline({ series = [], width: initialWidth = 120, height = 40, label }) {
+  const boxRef = useRef(null);
+  const [width, setWidth] = useState(initialWidth);
+
+  useEffect(() => {
+    const el = boxRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return undefined;
+    const observer = new ResizeObserver(([entry]) => {
+      const w = Math.round(entry.contentRect.width);
+      if (w > 0) setWidth(w);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [series.length]);
+
   if (!series.length) return null;
 
   const first = series[0];
@@ -30,13 +48,14 @@ export default function Sparkline({ series = [], width = 120, height = 36, label
   const points = series.map((p, i) => `${x(i).toFixed(1)},${y(p.score).toFixed(1)}`).join(" ");
 
   return (
+    <div ref={boxRef} className="spark" style={{ height }}>
     <svg
       role="img"
       aria-label={name}
       viewBox={`0 0 ${width} ${height}`}
-      width={width}
+      width="100%"
       height={height}
-      style={{ display: "block", maxWidth: "100%", flexShrink: 0 }}
+      style={{ display: "block" }}
     >
       {series.length > 1 && (
         <polyline points={points} fill="none" stroke="#2B6CB0" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
@@ -44,5 +63,6 @@ export default function Sparkline({ series = [], width = 120, height = 36, label
       {series.length > 1 && <circle cx={x(0)} cy={y(first.score)} r="2" fill="#fff" stroke="#2B6CB0" strokeWidth="1.5" />}
       <circle cx={x(series.length - 1)} cy={y(last.score)} r="3.5" fill="#2B6CB0" />
     </svg>
+    </div>
   );
 }

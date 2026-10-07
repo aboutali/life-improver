@@ -40,8 +40,19 @@ function utcStamp(date) {
   return date.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
 }
 
-// Build a VCALENDAR string holding one VEVENT. `now` only exists so tests
-// can pin DTSTAMP.
+// Date -> "YYYYMMDDTHHMMSS" as floating local time (no Z, no TZID), built from
+// local getters. A weekly reminder then stays at the same wall-clock time
+// across daylight saving changes.
+function localStamp(date) {
+  const p = (n, w = 2) => String(n).padStart(w, "0");
+  return (
+    `${p(date.getFullYear(), 4)}${p(date.getMonth() + 1)}${p(date.getDate())}` +
+    `T${p(date.getHours())}${p(date.getMinutes())}${p(date.getSeconds())}`
+  );
+}
+
+// Build a VCALENDAR string holding one VEVENT. DTSTART/DTEND are floating local
+// time; DTSTAMP is UTC. `now` only exists so tests can pin DTSTAMP.
 export function buildEvent({
   uid = `${Date.now().toString(36)}@life-improver`,
   title,
@@ -61,8 +72,8 @@ export function buildEvent({
     "BEGIN:VEVENT",
     `UID:${uid}`,
     `DTSTAMP:${utcStamp(now)}`,
-    `DTSTART:${utcStamp(start)}`,
-    `DTEND:${utcStamp(end)}`,
+    `DTSTART:${localStamp(start)}`,
+    `DTEND:${localStamp(end)}`,
     `SUMMARY:${escapeText(title)}`,
   ];
   if (description) lines.push(`DESCRIPTION:${escapeText(description)}`);

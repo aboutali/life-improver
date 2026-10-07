@@ -56,7 +56,7 @@ function saveJson(filename, data) {
 export default function Settings({ scores, quick, focus, checkins, navigate }) {
   const [importError, setImportError] = useState("");
   const installPrompt = useInstallPrompt();
-  const fileId = useId();
+  const noteId = useId();
 
   const onExport = () => {
     saveJson(`life-improver-${toLocalDate()}.json`, exportData());
@@ -115,19 +115,24 @@ export default function Settings({ scores, quick, focus, checkins, navigate }) {
       <section className="cd" aria-labelledby="set-data">
         <h3 className="set-h" id="set-data">Your data</h3>
         <p className="set-p">
-          Save everything to a file you can keep, or bring a saved file back onto this device.
+          Save everything to a file you can keep, or bring a saved copy back onto this device.
         </p>
         <div className="set-row">
-          <button type="button" className="btn btn-primary set-btn" onClick={onExport}>Export JSON</button>
+          <button type="button" className="btn btn-primary set-btn" onClick={onExport}>Download a copy</button>
         </div>
-        <label className="set-file" htmlFor={fileId}>Import a saved JSON file</label>
-        <input
-          id={fileId}
-          className="set-input"
-          type="file"
-          accept=".json,application/json"
-          onChange={onImport}
-        />
+        <div className="set-row" style={{ marginTop: 12 }}>
+          <label className="btn set-btn set-restore">
+            Restore from a copy
+            <input
+              className="sr-only"
+              type="file"
+              accept=".json,application/json"
+              aria-describedby={noteId}
+              onChange={onImport}
+            />
+          </label>
+          <span id={noteId} className="set-note">(.json file)</span>
+        </div>
         {importError && <p className="set-err" role="alert">{importError}</p>}
       </section>
 
@@ -148,7 +153,7 @@ export default function Settings({ scores, quick, focus, checkins, navigate }) {
       <section className="cd" aria-labelledby="set-reset">
         <h3 className="set-h" id="set-reset">Start over</h3>
         <p className="set-p">
-          Clear every score, check-in and your current focus from this device. Export first if you may want them back.
+          Clear every score, check-in and your current focus from this device. Download a copy first if you may want them back.
         </p>
         <button type="button" className="btn btn-danger set-btn" onClick={onReset}>Reset all data</button>
       </section>
@@ -156,7 +161,7 @@ export default function Settings({ scores, quick, focus, checkins, navigate }) {
       <section className="cd" aria-labelledby="set-privacy">
         <h3 className="set-h" id="set-privacy">Privacy</h3>
         <p className="set-p" style={{ marginBottom: 0 }}>
-          No accounts, no server, no tracking. Your data lives in this browser, on this device, and nowhere else. Clearing your browser&rsquo;s site data will erase it, so export a copy now and then.
+          No accounts, no server, no tracking. Your data lives in this browser, on this device, and nowhere else. Clearing your browser&rsquo;s site data will erase it, so download a copy now and then.
         </p>
       </section>
 

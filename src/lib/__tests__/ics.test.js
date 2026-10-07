@@ -4,7 +4,8 @@ import { buildEvent, checkinEvent, practiceEvent, foldLine } from "../ics.js";
 const enc = new TextEncoder();
 const octets = (s) => enc.encode(s).length;
 const now = new Date(Date.UTC(2026, 9, 1, 12, 0, 0));
-const start = new Date(Date.UTC(2026, 9, 11, 18, 0, 0));
+// Local wall-clock times: DTSTART/DTEND are floating, so tests are timezone-proof.
+const start = new Date(2026, 9, 11, 18, 0, 0);
 const lines = (text) => text.split("\r\n");
 
 describe("foldLine", () => {
@@ -64,12 +65,28 @@ describe("buildEvent", () => {
     expect(l[l.length - 2]).toBe("END:VCALENDAR");
   });
 
-  it("writes DTSTAMP, DTSTART and DTEND in UTC", () => {
+  it("writes DTSTAMP in UTC and DTSTART/DTEND as floating local time", () => {
     const l = lines(ics);
     expect(l).toContain("DTSTAMP:20261001T120000Z");
-    expect(l).toContain("DTSTART:20261011T180000Z");
-    expect(l).toContain("DTEND:20261011T181500Z");
+    expect(l).toContain("DTSTART:20261011T180000");
+    expect(l).toContain("DTEND:20261011T181500");
     expect(l).toContain("UID:abc@test");
+  });
+
+  it("emits no Z or TZID on DTSTART and DTEND", () => {
+    const l = lines(ics);
+    const dt = l.filter((x) => /^DT(START|END)/.test(x));
+    expect(dt).toHaveLength(2);
+    dt.forEach((x) => expect(x).toMatch(/^DT(START|END):\d{8}T\d{6}$/));
+    expect(ics).not.toContain("TZID");
+  });
+
+  it("keeps the same wall-clock time across a DST boundary", () => {
+    // Local getters decide the text, so any two local 18:00 dates match.
+    const winter = buildEvent({ title: "W", start: new Date(2026, 0, 10, 18, 0), now });
+    const summer = buildEvent({ title: "S", start: new Date(2026, 6, 11, 18, 0), now });
+    expect(winter).toContain("DTSTART:20260110T180000\r\n");
+    expect(summer).toContain("DTSTART:20260711T180000\r\n");
   });
 
   it("escapes commas, semicolons, backslashes and newlines in text", () => {
@@ -95,8 +112,8 @@ describe("buildEvent", () => {
   });
 
   it("rolls DTEND across midnight", () => {
-    const late = buildEvent({ title: "Late", start: new Date(Date.UTC(2026, 11, 31, 23, 50)), durationMin: 20, now });
-    expect(late).toContain("DTEND:20270101T001000Z");
+    const late = buildEvent({ title: "Late", start: new Date(2026, 11, 31, 23, 50), durationMin: 20, now });
+    expect(late).toContain("DTEND:20270101T001000");
   });
 });
 
@@ -105,7 +122,7 @@ describe("checkinEvent", () => {
 
   it("is a 15-minute weekly event pointing at the check-in screen", () => {
     expect(ics).toContain("RRULE:FREQ=WEEKLY");
-    expect(ics).toContain("DTEND:20261011T181500Z");
+    expect(ics).toContain("DTEND:20261011T181500");
     expect(ics).toContain("URL:https://example.com/life-improver/#/checkin");
   });
 
@@ -122,7 +139,7 @@ describe("practiceEvent", () => {
   it("is a 20-minute weekly event titled with the practice text", () => {
     const ics = practiceEvent({ ...args, practiceText: "Keep a fixed wake time" });
     expect(ics).toContain("SUMMARY:Keep a fixed wake time");
-    expect(ics).toContain("DTEND:20261011T182000Z");
+    expect(ics).toContain("DTEND:20261011T182000");
     expect(ics).toContain("RRULE:FREQ=WEEKLY");
   });
 

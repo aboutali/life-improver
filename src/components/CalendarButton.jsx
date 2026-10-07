@@ -21,9 +21,12 @@ export default function CalendarButton({
   filename,
   defaultDay = 0,
   defaultTime = "18:00",
+  triggerClassName = "btn btn-tap",
+  defaultOpen = false,
+  showTrigger = true,
 }) {
   const uid = useId();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const [day, setDay] = useState(defaultDay);
   const [time, setTime] = useState(defaultTime);
   const [done, setDone] = useState(false);
@@ -36,17 +39,19 @@ export default function CalendarButton({
 
   return (
     <div className="cal">
-      <button
-        type="button"
-        className="btn btn-tap"
-        aria-expanded={open}
-        aria-controls={`${uid}-panel`}
-        onClick={() => setOpen((o) => !o)}
-      >
-        {label}
-      </button>
+      {showTrigger && (
+        <button
+          type="button"
+          className={triggerClassName}
+          aria-expanded={open}
+          aria-controls={`${uid}-panel`}
+          onClick={() => setOpen((o) => !o)}
+        >
+          {label}
+        </button>
+      )}
       {open && (
-        <div id={`${uid}-panel`} className="cal-panel">
+        <div id={`${uid}-panel`} className="cal-panel" role="group" aria-label={label}>
           <div className="cal-fields">
             <label className="cal-field" htmlFor={`${uid}-day`}>
               <span>Day</span>

@@ -42,13 +42,22 @@ describe("Settings", () => {
     expect(screen.getByText(/Add to Home Screen/)).toBeInTheDocument();
   });
 
+  it("keeps the restore control a real, focusable file input beside muted help text", () => {
+    render(<Settings {...makeProps()} />);
+    const input = screen.getByLabelText(/restore from a copy/i);
+    expect(input).toHaveAttribute("type", "file");
+    expect(input).toHaveAccessibleDescription("(.json file)");
+    input.focus();
+    expect(input).toHaveFocus();
+  });
+
   it("exports a dated JSON file", async () => {
     const user = userEvent.setup();
     URL.createObjectURL = vi.fn(() => "blob:test");
     URL.revokeObjectURL = vi.fn();
     const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
     render(<Settings {...makeProps()} />);
-    await user.click(screen.getByRole("button", { name: "Export JSON" }));
+    await user.click(screen.getByRole("button", { name: "Download a copy" }));
     expect(click).toHaveBeenCalledTimes(1);
     expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
   });
@@ -64,7 +73,7 @@ describe("Settings", () => {
       data: { scores: { "1-0": 4 }, quick: { 1: 6 }, focus: null, checkins: [] },
     };
     const file = new File([JSON.stringify(payload)], "backup.json", { type: "application/json" });
-    await user.upload(screen.getByLabelText(/import a saved json file/i), file);
+    await user.upload(screen.getByLabelText(/restore from a copy/i), file);
     await waitFor(() => expect(reload).toHaveBeenCalled());
     expect(confirm).toHaveBeenCalledWith("Replace all data on this device with the imported file?");
     expect(JSON.parse(localStorage.getItem(KEYS.scores))).toEqual({ "1-0": 4 });
@@ -75,7 +84,7 @@ describe("Settings", () => {
     vi.spyOn(window, "confirm").mockReturnValue(true);
     render(<Settings {...makeProps()} />);
     const file = new File(["not json"], "bad.json", { type: "application/json" });
-    await user.upload(screen.getByLabelText(/import a saved json file/i), file);
+    await user.upload(screen.getByLabelText(/restore from a copy/i), file);
     expect(await screen.findByRole("alert")).toHaveTextContent(/not valid JSON/i);
     expect(reload).not.toHaveBeenCalled();
   });
@@ -85,7 +94,7 @@ describe("Settings", () => {
     vi.spyOn(window, "confirm").mockReturnValue(false);
     render(<Settings {...makeProps()} />);
     const file = new File(["{}"], "x.json", { type: "application/json" });
-    await user.upload(screen.getByLabelText(/import a saved json file/i), file);
+    await user.upload(screen.getByLabelText(/restore from a copy/i), file);
     await waitFor(() => expect(window.confirm).toHaveBeenCalled());
     expect(reload).not.toHaveBeenCalled();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 // Hash router. GitHub Pages serves the app under a sub-path, so hashes avoid 404s.
 export const ROUTES = [
@@ -39,21 +39,52 @@ function scrollToTop() {
   }
 }
 
+const KNOWN = new Set(ROUTES.map((r) => r.path));
+
+// Unknown hashes resolve to Today ("/").
+export function normalisePath(path) {
+  return KNOWN.has(path) ? path : "/";
+}
+
+// Returns { path, focusKey, navigate }. `focusKey` changes after every
+// user-driven hashchange (never on first load, never on a silent redirect) so
+// the app can move focus to the new screen's heading.
 export function useRoute() {
-  const [path, setPath] = useState(currentPath);
+  const [state, setState] = useState(() => ({ path: normalisePath(currentPath()), focusKey: 0 }));
+  const silent = useRef(false);
 
   useEffect(() => {
+    // An unknown hash is replaced by "#/" so Back does not return to it.
+    if (!KNOWN.has(currentPath())) {
+      silent.current = true;
+      window.location.replace(href("/"));
+    }
     const onChange = () => {
-      setPath(currentPath());
-      scrollToTop();
+      const quiet = silent.current;
+      silent.current = false;
+      const next = normalisePath(currentPath());
+      setState((prev) => ({ path: next, focusKey: quiet ? prev.focusKey : prev.focusKey + 1 }));
+      if (!KNOWN.has(currentPath())) {
+        silent.current = true;
+        window.location.replace(href("/"));
+      }
+      if (!quiet) scrollToTop();
     };
     window.addEventListener("hashchange", onChange);
     return () => window.removeEventListener("hashchange", onChange);
   }, []);
 
-  const navigate = useCallback((next) => {
-    window.location.hash = next;
+  // navigate(path, { replace, quiet }): replace swaps the current history
+  // entry, so a redirect does not trap the Back button. quiet skips the focus
+  // move and the scroll (for automatic redirects).
+  const navigate = useCallback((next, { replace = false, quiet = false } = {}) => {
+    if (replace) {
+      if (quiet && currentPath() !== next) silent.current = true;
+      window.location.replace(href(next));
+    } else {
+      window.location.hash = next;
+    }
   }, []);
 
-  return { path, navigate };
+  return { path: state.path, focusKey: state.focusKey, navigate };
 }

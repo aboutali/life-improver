@@ -1,12 +1,12 @@
 import { useCallback } from "react";
 import { usePersistentState } from "./usePersistentState.js";
-import { KEYS } from "../lib/storage.js";
+import { KEYS, isCheckinList } from "../lib/storage.js";
 
 const MAX_NOTE = 500;
 
 // Weekly reflections, oldest first.
 export function useCheckins() {
-  const [checkins, setCheckins] = usePersistentState(KEYS.checkins, []);
+  const [checkins, setCheckins] = usePersistentState(KEYS.checkins, [], isCheckinList);
 
   // Appends the check-in; the note is trimmed to 500 characters.
   const addCheckin = useCallback(

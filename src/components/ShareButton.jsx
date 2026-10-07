@@ -56,9 +56,8 @@ export default function ShareButton({ domains, overall }) {
           {busy ? "Preparing image…" : "Share image"}
         </button>
       </div>
-      <p className="share-msg" role={failed ? "alert" : "status"} style={failed ? { color: "#C53030" } : undefined}>
-        {message}
-      </p>
+      <p className="share-msg" role="status">{failed ? "" : message}</p>
+      <p className="share-msg" role="alert" style={{ color: "#C53030" }}>{failed ? message : ""}</p>
     </div>
   );
 }

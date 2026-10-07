@@ -73,7 +73,7 @@ export default function Journey({ checkins }) {
                 <span className="sf" style={{ fontSize: 22, color: "#1A1A1A" }}>
                   <span className="jr-vh">Latest score </span>{latest}
                 </span>
-                <span style={{ fontSize: 13, color: "#666", minWidth: 36, textAlign: "right" }}>
+                <span className={`jr-chip${change !== null && change > 0 ? " up" : ""}`}>
                   <span className="jr-vh">Change since first </span>{formatChange(change)}
                 </span>
               </div>
@@ -82,21 +82,21 @@ export default function Journey({ checkins }) {
         })}
       </div>
 
-      <h3 style={{ fontSize: 12, fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: 0.5, margin: "24px 0 8px" }}>
+      <h3 style={{ fontSize: 12, fontWeight: 600, color: "#666", textTransform: "uppercase", letterSpacing: 0.5, margin: "24px 0 8px" }}>
         Log
       </h3>
       <ul className="cd" style={{ padding: 0, listStyle: "none" }}>
         {log.map((c) => (
           <li key={c.id} className="jr-log">
             <div className="jr-log-head">
-              <span style={{ color: "#888", fontSize: 13 }}>{formatDate(c.date)}</span>
+              <span style={{ color: "#666", fontSize: 13 }}>{formatDate(c.date)}</span>
               <span style={{ fontWeight: 600, color: "#1A1A1A" }}>{nameOf(c)}</span>
             </div>
             <p style={{ fontSize: 14, color: "#444" }}>
               {PRACTISED_LABEL[c.practised] ?? c.practised} · Score {c.score}
             </p>
             {c.note && <p style={{ fontSize: 14, color: "#333", marginTop: 4, whiteSpace: "pre-wrap" }}>{c.note}</p>}
-            {practiceOf(c) && <p style={{ fontSize: 12, color: "#888", marginTop: 4 }}>{practiceOf(c)}</p>}
+            {practiceOf(c) && <p style={{ fontSize: 12, color: "#666", marginTop: 4 }}>{practiceOf(c)}</p>}
           </li>
         ))}
       </ul>

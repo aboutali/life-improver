@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { FRAMEWORK } from "../data/framework.js";
-import { toLocalDate } from "../lib/dates.js";
+import { useToday } from "../hooks/useToday.js";
 import { suggestFocus, suggestPractice } from "../lib/recommend.js";
 import FocusPicker from "./FocusPicker.jsx";
 
@@ -12,6 +12,8 @@ const firstSentence = (text) => {
   return m ? m[0] : text;
 };
 
+const SLIDER_KEYS = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End", "PageUp", "PageDown"];
+
 export default function Onboarding({ scores, quick, focus, checkins, navigate }) {
   const [step, setStep] = useState(1);
   const [draft, setDraft] = useState({}); // { domainId: 1..10 }, only rated domains
@@ -19,6 +21,10 @@ export default function Onboarding({ scores, quick, focus, checkins, navigate })
   const [picking, setPicking] = useState(false);
   const headingRef = useRef(null);
   const mounted = useRef(false);
+  const sectionRef = useRef(null);
+  const chooseRef = useRef(null);
+  const pickerWasOpen = useRef(false);
+  const today = useToday();
 
   // Move focus to the new step's heading so screen readers follow along.
   useEffect(() => {
@@ -26,14 +32,35 @@ export default function Onboarding({ scores, quick, focus, checkins, navigate })
     mounted.current = true;
   }, [step]);
 
+  // The picker opens below the buttons: move focus to its heading, and hand
+  // focus back to "Choose another" when it closes.
+  useEffect(() => {
+    if (picking) {
+      const heading = sectionRef.current?.querySelector("#fp-title");
+      if (heading) {
+        heading.tabIndex = -1;
+        heading.focus();
+        pickerWasOpen.current = true;
+      }
+    } else if (pickerWasOpen.current) {
+      pickerWasOpen.current = false;
+      chooseRef.current?.focus();
+    }
+  }, [picking]);
+
   const rated = Object.keys(draft).length;
+  // A range input shows 5 before it is touched and fires no change event for
+  // it, so a pointer or key interaction also records the value it rests on.
+  const record = (id, raw) => {
+    const val = Number(raw);
+    setDraft((p) => (p[id] ? p : { ...p, [id]: val }));
+  };
   const go = (n) => { setPicking(false); setStep(n); };
 
   const suggested = step === 3
     ? suggestFocus({ scores: scores.scores, quick: draft })
     : null;
   const chosen = pick || suggested;
-  const today = toLocalDate();
   const domain = chosen && FRAMEWORK.find((d) => d.id === chosen.domainId);
   const sub = domain && domain.subs[chosen.subIndex];
   const practiceIndex = chosen
@@ -61,14 +88,14 @@ export default function Onboarding({ scores, quick, focus, checkins, navigate })
 
   return (
     <div className="wl">
-      <p className="wl-step">{step} of 3</p>
+      {step > 1 && <p className="wl-step">{step} of 3</p>}
 
       {step === 1 && (
-        <section className="cd">
-          <h2 className="sf wl-title" tabIndex={-1} ref={headingRef}>Begin where you are.</h2>
+        <section className="cd wl-hero">
+          <p className="wl-eyebrow">Life Improver</p>
+          <h2 className="sf wl-title" tabIndex={-1} ref={headingRef}>Your whole life. In one view.</h2>
           <p className="sf wl-lead">
-            Seven grounds make up a life. Name how each one feels today, and we will
-            suggest a single practice to tend this week.
+            Name how seven grounds of life feel today, and we will suggest one practice to tend this week.
           </p>
           <p className="wl-privacy">Everything stays on this device.</p>
           <div className="wl-actions">
@@ -105,9 +132,10 @@ export default function Onboarding({ scores, quick, focus, checkins, navigate })
                       aria-valuetext={v ? `${v} out of 10` : "not rated"}
                       className={`wl-range${v ? "" : " unset"}`}
                       onChange={(e) => setDraft((p) => ({ ...p, [d.id]: Number(e.target.value) }))}
-                      onPointerUp={(e) => {
-                        const val = Number(e.currentTarget.value);
-                        setDraft((p) => (p[d.id] ? p : { ...p, [d.id]: val }));
+                      onPointerUp={(e) => record(d.id, e.currentTarget.value)}
+                      onClick={(e) => record(d.id, e.currentTarget.value)}
+                      onKeyUp={(e) => {
+                        if (SLIDER_KEYS.includes(e.key)) record(d.id, e.currentTarget.value);
                       }}
                     />
                     <output htmlFor={inputId} className="wl-val">{v ?? "Not rated"}</output>
@@ -133,7 +161,7 @@ export default function Onboarding({ scores, quick, focus, checkins, navigate })
       )}
 
       {step === 3 && sub && (
-        <section className="cd fc">
+        <section className="cd fc" ref={sectionRef}>
           <h2 className="sf wl-title" tabIndex={-1} ref={headingRef}>A place to begin</h2>
           <p className="fc-eyebrow">{domain.domain}</p>
           <h3 className="sf fc-title">{sub.name}</h3>
@@ -141,11 +169,16 @@ export default function Onboarding({ scores, quick, focus, checkins, navigate })
           <p className="today-muted">{pick ? "A place you chose to begin." : suggested.reason}</p>
           <div className="wl-actions">
             <button type="button" className="btn btn-tap" onClick={() => go(2)}>Back</button>
-            {!picking && (
-              <button type="button" className="btn btn-tap" onClick={() => setPicking(true)}>
-                Choose another
-              </button>
-            )}
+            <button
+              type="button"
+              className="btn btn-tap"
+              ref={chooseRef}
+              hidden={picking}
+              aria-expanded={picking}
+              onClick={() => setPicking(true)}
+            >
+              Choose another
+            </button>
             <button type="button" className="btn btn-primary btn-tap" onClick={plant}>
               Plant this seed
             </button>

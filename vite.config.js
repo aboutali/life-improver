@@ -7,7 +7,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
-      injectRegister: "auto",
+      injectRegister: false, // main.jsx registers via virtual:pwa-register
       includeAssets: ["icon.svg", "apple-touch-icon.png"],
       manifest: {
         name: "Life Improver",

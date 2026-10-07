@@ -24,7 +24,11 @@ Implement the router in `src/lib/router.js` as a `useRoute()` hook. Add no route
 | `#/sources` | Sources | `Sources.jsx` | Sources |
 | `#/settings` | Data, privacy, disclaimer | `Settings.jsx` | (footer link) |
 
-Unknown hashes render Today. Today redirects to `#/welcome` when the user has no quick scores and no full scores.
+Unknown hashes are normalised to `#/` inside `useRoute` (the entry is replaced, so Back does not return to them). `App` redirects `#/` to `#/welcome` when the user has no quick scores and no full scores.
+
+`useRoute()` returns `{ path, focusKey, navigate }`. `navigate(path, { replace, quiet })` uses `location.replace("#" + path)` when `replace` is true, so redirects and the post-Reset jump do not trap the Back button. `quiet` suppresses the focus move and scroll (used by the newcomer redirect). After every non-quiet `hashchange`, `App` moves focus to the first `h2` of the new screen (it adds `tabindex="-1"`). Focus is never moved on first load.
+
+`App` wraps the routed screen in an `ErrorBoundary` ("Your data may be damaged. Export or start over in Settings." with a link to `#/settings`). The screen column is 720px wide for `/`, `/welcome`, `/checkin`, `/journey`, `/settings`, and 960px for the rest. The footer holds three links: Framework, Sources, Settings & privacy.
 
 ## 3. Storage (E4)
 
@@ -62,6 +66,8 @@ All keys start with `life-improver:`. All values are JSON. `src/lib/storage.js` 
 }
 ```
 
+Hooks validate stored values by shape and fall back to the empty value when the shape is wrong: `usePersistentState(key, initial, validate?)`. Validators live in `storage.js`: scores and quick are plain objects of numbers 1..10; focus is `null` or an object with numeric `domainId`, `subIndex`, `practiceIndex`; check-ins are an array of objects.
+
 A check-in also writes its `score` into `useScores` for the same sub. The full assessment stays in sync.
 
 ### Migration helper
@@ -72,7 +78,7 @@ It writes `meta:v1` when missing. It is idempotent. It never deletes `scores:v1`
 ### Export and import (E1)
 
 - `exportData(storage)` returns `{ app: "life-improver", schema: 2, exportedAt, data: { scores, quick, focus, checkins } }`.
-- `importData(json, storage)` validates `app` and `schema`. It throws `Error` with a human message on bad input. It overwrites the four keys. The UI reloads the page after import.
+- `importData(json, storage)` validates `app` and `schema`. It throws `Error` with a human message on bad input. Check-in `date` must match `YYYY-MM-DD`; notes are cut to 500 characters. It overwrites the four keys. If any write fails, it restores the previous values of all keys and throws "This device has no room for the file." The UI reloads the page after import.
 
 ## 4. Library modules (pure, unit-tested)
 
@@ -93,7 +99,7 @@ Put pure logic in `src/lib/`. Components hold no business logic.
   - Exclude indices in `skipped`.
   - Exclude practices used in a check-in for that sub within 28 days of `today`.
   - Pick the lowest remaining index. If none remains, ignore the 28-day rule. If still none, return index 0.
-- `nextPractice(focus, framework, checkins, today)` → new `Focus` with the current index added to `skipped` and a new `practiceIndex`.
+- `nextPractice(focus, framework, checkins, today)` → new `Focus` with the current index added to `skipped` and a new `practiceIndex`. When every practice would then be skipped, `skipped` resets to `[current]` and the index after the current one (wrapping) is chosen, so a swap always changes the practice.
 
 ### `src/lib/trends.js`
 - `seriesFor(checkins, domainId, subIndex)` → `[{ date, score }]` oldest first.
@@ -104,7 +110,7 @@ Put pure logic in `src/lib/`. Components hold no business logic.
 ### `src/lib/ics.js` (B1, B2)
 - `buildEvent({ uid, title, description, url, start: Date, durationMin, rrule })` → RFC 5545 string with CRLF line endings.
   - Fold lines at 75 octets. Escape `,` `;` `\` and newlines in text.
-  - Include `VCALENDAR`, `VERSION:2.0`, `PRODID:-//Life Improver//EN`, one `VEVENT`, `DTSTAMP`, `DTSTART` in UTC, `DTEND`, optional `RRULE`, optional `URL`.
+  - Include `VCALENDAR`, `VERSION:2.0`, `PRODID:-//Life Improver//EN`, one `VEVENT`, `DTSTAMP` (UTC, `...Z`), `DTSTART` and `DTEND` as floating local time (`YYYYMMDDTHHMMSS`, no `Z`, no `TZID`, built from local getters so weekly reminders keep the same wall-clock time across DST), optional `RRULE`, optional `URL`.
 - `checkinEvent({ start, appUrl })` → weekly RRULE `FREQ=WEEKLY`, 15 minutes, title `"Weekly check-in · Life Improver"`, URL `appUrl + "#/checkin"`.
 - `practiceEvent({ start, practiceText, subName, appUrl })` → weekly RRULE, 20 minutes, title is the practice text cut to 60 chars.
 - `downloadIcs(filename, text)` → triggers a browser download. Not unit-tested.
@@ -119,6 +125,7 @@ Put pure logic in `src/lib/`. Components hold no business logic.
 - `useFocus()` → `{ focus, setFocus(focus), clearFocus() }`.
 - `useCheckins()` → `{ checkins, addCheckin(checkin), reset() }`.
 - `useScores()` stays unchanged.
+- `useToday()` → today's local date string, recomputed on `visibilitychange` and window `focus`. Screens use it instead of calling `toLocalDate()` on each render.
 
 `App.jsx` creates all four hook instances once. It passes them as props. Name the props `scores`, `quick`, `focus`, `checkins`.
 
@@ -133,8 +140,8 @@ Put pure logic in `src/lib/`. Components hold no business logic.
 - Small garden: 7 domain bars from full scores, else quick scores.
 
 ### Onboarding (A1, A2)
-- Step 1: one sentence of intro and a privacy line ("Everything stays on this device.").
-- Step 2: 7 domain sliders on one screen. Each shows the domain name and the first sentence of `desc`.
+- Step 1 is the hero: eyebrow "Life Improver", serif headline "Your whole life. In one view.", one sentence of intro, a privacy line ("Everything stays on this device.") and a primary "Begin".
+- Step 2: 7 domain sliders on one screen. A key press (arrows, Home, End, PageUp, PageDown) or a click records the resting value, so 5 can be chosen. Each shows the domain name and the first sentence of `desc`.
 - Step 3: show the suggested focus with its reason. Buttons: "Plant this seed" and "Choose another".
 - Finish writes quick scores and focus. Then navigate to `#/`.
 - Offer "Skip to the full assessment" as a quiet link.
@@ -161,7 +168,7 @@ Put pure logic in `src/lib/`. Components hold no business logic.
 
 ## 7. PWA (B3)
 
-- Add `vite-plugin-pwa`. Register the service worker with `registerType: "autoUpdate"`.
+- Add `vite-plugin-pwa`. Register the service worker from `main.jsx` with `registerSW({ immediate: true })` from `virtual:pwa-register` and `registerType: "autoUpdate"` (`injectRegister: false`), so a new version reloads the page by itself.
 - Manifest: name "Life Improver", short_name "Life", theme `#2B6CB0`, background `#F5F5F5`, `display: standalone`, `start_url` and `scope` `/life-improver/`.
 - Icons: 192 and 512 PNG plus a maskable 512 PNG in `public/`. Generate them from an SVG.
 

@@ -28,6 +28,17 @@ describe("Sparkline", () => {
     expect(container.querySelector("polyline").getAttribute("points").split(" ")).toHaveLength(3);
   });
 
+  it("fills its container and keeps dots round", () => {
+    const { container } = render(
+      <Sparkline series={[{ date: "2026-10-01", score: 3 }, { date: "2026-10-08", score: 6 }]} />
+    );
+    const svg = container.querySelector("svg");
+    expect(svg).toHaveAttribute("width", "100%");
+    expect(svg).toHaveAttribute("height", "40");
+    expect(svg).not.toHaveAttribute("preserveAspectRatio");
+    expect(container.querySelectorAll("circle")).toHaveLength(2);
+  });
+
   it("scales 1..10: a higher score sits higher on the chart", () => {
     const { container } = render(
       <Sparkline series={[{ date: "2026-10-01", score: 1 }, { date: "2026-10-08", score: 10 }]} />

@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { renderHook, act } from "@testing-library/react";
+import { usePersistentState } from "../usePersistentState.js";
+import { useToday } from "../useToday.js";
+import { vi } from "vitest";
 import { useQuickScores } from "../useQuickScores.js";
 import { useFocus } from "../useFocus.js";
 import { useCheckins } from "../useCheckins.js";
@@ -123,5 +126,63 @@ describe("useScores", () => {
     act(() => result.current.set(1, 0, 7));
     expect(stored("life-improver:scores:v1")).toEqual({ "1-0": 7 });
     expect(result.current.get(1, 0)).toBe(7);
+  });
+});
+
+describe("shape validation", () => {
+  it("usePersistentState falls back to initial when validate rejects", () => {
+    localStorage.setItem("k", JSON.stringify([1]));
+    const { result } = renderHook(() => usePersistentState("k", {}, (v) => !Array.isArray(v)));
+    expect(result.current[0]).toEqual({});
+    localStorage.setItem("k", JSON.stringify({ a: 1 }));
+    const again = renderHook(() => usePersistentState("k", {}, (v) => !Array.isArray(v)));
+    expect(again.result.current[0]).toEqual({ a: 1 });
+  });
+
+  it("scores and quick ignore a stored value of the wrong shape", () => {
+    localStorage.setItem(KEYS.scores, JSON.stringify([1, 2]));
+    localStorage.setItem(KEYS.quick, JSON.stringify({ 1: 42 }));
+    expect(renderHook(() => useScores()).result.current.scores).toEqual({});
+    expect(renderHook(() => useQuickScores()).result.current.quick).toEqual({});
+  });
+
+  it("focus accepts null or a numeric object and rejects junk", () => {
+    localStorage.setItem(KEYS.focus, JSON.stringify("oops"));
+    expect(renderHook(() => useFocus()).result.current.focus).toBeNull();
+    localStorage.setItem(KEYS.focus, JSON.stringify({ domainId: "1", subIndex: 0, practiceIndex: 0 }));
+    expect(renderHook(() => useFocus()).result.current.focus).toBeNull();
+    const ok = { domainId: 1, subIndex: 0, practiceIndex: 2 };
+    localStorage.setItem(KEYS.focus, JSON.stringify(ok));
+    expect(renderHook(() => useFocus()).result.current.focus).toEqual(ok);
+  });
+
+  it("checkins must be a list of objects", () => {
+    localStorage.setItem(KEYS.checkins, JSON.stringify({ a: 1 }));
+    expect(renderHook(() => useCheckins()).result.current.checkins).toEqual([]);
+    localStorage.setItem(KEYS.checkins, JSON.stringify([1, 2]));
+    expect(renderHook(() => useCheckins()).result.current.checkins).toEqual([]);
+  });
+});
+
+describe("useToday", () => {
+  it("returns the local date and refreshes on focus and visibility", () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date(2026, 9, 7, 23, 50));
+      const { result } = renderHook(() => useToday());
+      expect(result.current).toBe("2026-10-07");
+      vi.setSystemTime(new Date(2026, 9, 8, 7, 0));
+      act(() => {
+        window.dispatchEvent(new Event("focus"));
+      });
+      expect(result.current).toBe("2026-10-08");
+      vi.setSystemTime(new Date(2026, 9, 9, 7, 0));
+      act(() => {
+        document.dispatchEvent(new Event("visibilitychange"));
+      });
+      expect(result.current).toBe("2026-10-09");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

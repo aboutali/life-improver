@@ -104,7 +104,7 @@ describe("ShareButton", () => {
     expect(arg.files[0].name).toMatch(/^life-improver-\d{4}-\d{2}-\d{2}\.png$/);
     await waitFor(() => expect(screen.getByRole("button", { name: "Share image" })).toBeEnabled());
     expect(click).not.toHaveBeenCalled();
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByRole("alert")).toBeEmptyDOMElement();
   });
 
   it("reports a failure inline when no canvas context exists", async () => {
@@ -112,6 +112,13 @@ describe("ShareButton", () => {
     HTMLCanvasElement.prototype.getContext = vi.fn(() => null);
     render(<ShareButton domains={domains} overall="5.8" />);
     await user.click(screen.getByRole("button", { name: "Share image" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent(/cannot draw/i);
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(/cannot draw/i));
+    expect(screen.getByRole("status")).toBeEmptyDOMElement();
+  });
+
+  it("keeps both live regions mounted from the start", () => {
+    render(<ShareButton domains={domains} overall="5.8" />);
+    expect(screen.getByRole("status")).toBeEmptyDOMElement();
+    expect(screen.getByRole("alert")).toBeEmptyDOMElement();
   });
 });

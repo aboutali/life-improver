@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FRAMEWORK } from "../data/framework.js";
-import { toLocalDate } from "../lib/dates.js";
+import { useToday } from "../hooks/useToday.js";
 import { suggestFocus, suggestPractice, nextPractice } from "../lib/recommend.js";
 import { hasCheckinThisWeek } from "../lib/trends.js";
 import { checkinEvent, practiceEvent } from "../lib/ics.js";
@@ -22,7 +22,9 @@ function reasonFor(focus, scores, quickScores) {
 
 export default function Today({ scores, quick, focus, checkins, navigate }) {
   const [picking, setPicking] = useState(false);
-  const today = toLocalDate();
+  const today = useToday();
+  const triggerRef = useRef(null);
+  const wasPicking = useRef(false);
   const quickScores = quick.quick || {};
 
   const current = focus.focus;
@@ -33,6 +35,12 @@ export default function Today({ scores, quick, focus, checkins, navigate }) {
   const suggestion = hasFocus
     ? null
     : suggestFocus({ scores: scores.scores, quick: quickScores });
+
+  // When the picker closes, focus returns to the button that opened it.
+  useEffect(() => {
+    if (wasPicking.current && !picking && triggerRef.current) triggerRef.current.focus();
+    wasPicking.current = picking;
+  }, [picking]);
 
   const plant = (domainId, subIndex) => {
     const { practiceIndex } = suggestPractice({
@@ -60,6 +68,20 @@ export default function Today({ scores, quick, focus, checkins, navigate }) {
           onSwap={() =>
             focus.setFocus(nextPractice(current, FRAMEWORK, checkins.checkins, today))
           }
+          picking={picking}
+          onChoose={() => setPicking(true)}
+          triggerRef={triggerRef}
+          picker={
+            <FocusPicker
+              scores={scores}
+              quickScores={quickScores}
+              current={current}
+              currentLabel="Current"
+              closeLabel="Keep this focus"
+              onPick={plant}
+              onClose={() => setPicking(false)}
+            />
+          }
         />
       ) : suggestion ? (
         <SuggestionCard
@@ -69,6 +91,7 @@ export default function Today({ scores, quick, focus, checkins, navigate }) {
           picking={picking}
           onPlant={() => plant(suggestion.domainId, suggestion.subIndex)}
           onChoose={() => setPicking(true)}
+          triggerRef={triggerRef}
           picker={
             <FocusPicker
               scores={scores}
@@ -90,22 +113,9 @@ export default function Today({ scores, quick, focus, checkins, navigate }) {
         </section>
       )}
 
-      {hasFocus && (
-        <>
-          <CheckinCard checkins={checkins.checkins} today={today} navigate={navigate} />
-          <section className="cd" aria-labelledby="cal-checkin-title">
-            <h3 id="cal-checkin-title" className="sf today-h3">A weekly pause</h3>
-            <p className="today-muted">Set a gentle reminder to look back on the week.</p>
-            <CalendarButton
-              label="Add a weekly check-in to my calendar"
-              filename="life-improver-checkin.ics"
-              buildIcs={(start) => checkinEvent({ start, appUrl: appUrl() })}
-            />
-          </section>
-        </>
-      )}
+      {hasFocus && <CheckinCard checkins={checkins.checkins} today={today} navigate={navigate} />}
 
-      <Garden scores={scores} quickScores={quickScores} />
+      <Garden scores={scores} quickScores={quickScores} focusDomainId={hasFocus ? current.domainId : null} />
       <p className="today-refine">
         <a href="#/assess">Refine with the full assessment</a>
       </p>
@@ -113,31 +123,42 @@ export default function Today({ scores, quick, focus, checkins, navigate }) {
   );
 }
 
-function FocusCard({ focus, domain, sub, reason, onSwap }) {
+function FocusCard({ focus, domain, sub, reason, onSwap, picking, onChoose, triggerRef, picker }) {
   const text = sub.ideas[focus.practiceIndex] ?? sub.ideas[0];
   return (
     <section className="cd fc" aria-labelledby="fc-title">
-      <p className="fc-eyebrow">{domain.domain}</p>
+      <p className="fc-eyebrow">Your practice this week &middot; {domain.domain}</p>
       <h3 id="fc-title" className="sf fc-title">{sub.name}</h3>
       <p className="sf fc-practice">{text}</p>
       <p className="today-muted">{reason}</p>
       <div className="fc-actions">
-        <button type="button" className="btn btn-tap" onClick={onSwap}>
+        <button type="button" className="btn-text" onClick={onSwap}>
           Swap practice
         </button>
         <CalendarButton
-          label="Add practice to calendar"
+          label="Add to calendar"
+          triggerClassName="btn-text"
           filename="life-improver-practice.ics"
           buildIcs={(start) =>
             practiceEvent({ start, practiceText: text, subName: sub.name, appUrl: appUrl() })
           }
         />
+        <button
+          type="button"
+          className="btn-text"
+          ref={triggerRef}
+          aria-expanded={picking}
+          onClick={onChoose}
+        >
+          Choose another focus
+        </button>
       </div>
+      {picking && picker}
     </section>
   );
 }
 
-function SuggestionCard({ suggestion, today, checkins, picking, onPlant, onChoose, picker }) {
+function SuggestionCard({ suggestion, today, checkins, picking, onPlant, onChoose, triggerRef, picker }) {
   const domain = FRAMEWORK.find((d) => d.id === suggestion.domainId);
   const sub = domain.subs[suggestion.subIndex];
   const { practiceIndex } = suggestPractice({
@@ -159,7 +180,7 @@ function SuggestionCard({ suggestion, today, checkins, picking, onPlant, onChoos
           Plant this seed
         </button>
         {!picking && (
-          <button type="button" className="btn btn-tap" onClick={onChoose}>
+          <button type="button" className="btn btn-tap" ref={triggerRef} onClick={onChoose}>
             Choose another
           </button>
         )}
@@ -170,6 +191,7 @@ function SuggestionCard({ suggestion, today, checkins, picking, onPlant, onChoos
 }
 
 function CheckinCard({ checkins, today, navigate }) {
+  const [reminding, setReminding] = useState(false);
   const done = hasCheckinThisWeek(checkins, today);
   const last = checkins[checkins.length - 1];
   return (
@@ -188,6 +210,28 @@ function CheckinCard({ checkins, today, navigate }) {
             Check in
           </button>
         </>
+      )}
+      <div>
+        <button
+          type="button"
+          className="btn-text btn-quiet"
+          aria-expanded={reminding}
+          aria-controls="remind-weekly"
+          onClick={() => setReminding((r) => !r)}
+        >
+          Remind me weekly
+        </button>
+      </div>
+      {reminding && (
+        <div id="remind-weekly">
+          <CalendarButton
+            label="Add a weekly check-in to my calendar"
+            filename="life-improver-checkin.ics"
+            buildIcs={(start) => checkinEvent({ start, appUrl: appUrl() })}
+            defaultOpen
+            showTrigger={false}
+          />
+        </div>
       )}
     </section>
   );

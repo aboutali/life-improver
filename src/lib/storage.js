@@ -45,9 +45,22 @@ export function exportData(storage = localStorage) {
   return { app: APP, schema: SCHEMA, exportedAt: new Date().toISOString(), data };
 }
 
-const isObject = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
-const isScore = (v) => typeof v === "number" && v >= 1 && v <= 10;
+export const isObject = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
+export const isScore = (v) => typeof v === "number" && v >= 1 && v <= 10;
 const isIndex = (v) => Number.isInteger(v) && v >= 0;
+const isDate = (v) => typeof v === "string" && /^\d{4}-\d\d-\d\d$/.test(v);
+const MAX_NOTE = 500;
+
+// Light shape checks for values read back from localStorage by the hooks.
+// Strict validation (below) is reserved for imports.
+export const isScoreMap = (v) => isObject(v) && Object.values(v).every(isScore);
+export const isFocusShape = (v) =>
+  v === null ||
+  (isObject(v) &&
+    Number.isFinite(v.domainId) &&
+    Number.isFinite(v.subIndex) &&
+    Number.isFinite(v.practiceIndex));
+export const isCheckinList = (v) => Array.isArray(v) && v.every(isObject);
 
 // Each validator returns an error fragment, or null when the value is fine.
 function checkScoreMap(map, keyPattern) {
@@ -78,7 +91,7 @@ function checkCheckins(list) {
     (c) =>
       isObject(c) &&
       typeof c.id === "string" &&
-      typeof c.date === "string" &&
+      isDate(c.date) &&
       typeof c.week === "string" &&
       isIndex(c.domainId) &&
       isIndex(c.subIndex) &&
@@ -127,7 +140,30 @@ export function importData(json, storage = localStorage) {
     if (problems[name]) throw new Error(`The "${name}" data ${problems[name]}.`);
   }
 
-  for (const name of DATA_KEYS) storage.setItem(KEYS[name], JSON.stringify(data[name]));
-  runMigrations(storage);
+  // Notes are capped, as they are when written through the app.
+  data.checkins = data.checkins.map((c) => ({ ...c, note: c.note.slice(0, MAX_NOTE) }));
+
+  // Snapshot what is there, so a failed write leaves the old data intact.
+  const names = [...DATA_KEYS.map((n) => KEYS[n]), KEYS.meta];
+  const snapshot = {};
+  try {
+    for (const key of names) snapshot[key] = storage.getItem(key);
+  } catch {
+    throw new Error("This device could not read its saved data.");
+  }
+  try {
+    for (const name of DATA_KEYS) storage.setItem(KEYS[name], JSON.stringify(data[name]));
+    runMigrations(storage);
+  } catch {
+    for (const key of names) {
+      try {
+        if (snapshot[key] === null) storage.removeItem(key);
+        else storage.setItem(key, snapshot[key]);
+      } catch {
+        // Best effort: nothing more can be done here.
+      }
+    }
+    throw new Error("This device has no room for the file.");
+  }
   return data;
 }

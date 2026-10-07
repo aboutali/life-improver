@@ -122,6 +122,40 @@ describe("importData", () => {
     expect(localStorage.getItem(KEYS.meta)).not.toBeNull();
   });
 
+  it("caps notes at 500 characters", () => {
+    const data = { ...good().data, checkins: [{ ...checkin, note: "x".repeat(900) }] };
+    importData({ ...good(), data });
+    expect(JSON.parse(localStorage.getItem(KEYS.checkins))[0].note).toHaveLength(500);
+  });
+
+  it("rejects a check-in date that is not YYYY-MM-DD", () => {
+    ["yesterday", "2026-1-5", "2026-10-07T10:00"].forEach((date) => {
+      const data = { ...good().data, checkins: [{ ...checkin, date }] };
+      expect(() => importData({ ...good(), data })).toThrow("invalid check-in");
+    });
+  });
+
+  it("rolls back every key and rethrows a human message when a write fails", () => {
+    localStorage.setItem(KEYS.scores, JSON.stringify({ "3-3": 3 }));
+    localStorage.setItem(KEYS.quick, JSON.stringify({ 2: 2 }));
+    const real = Storage.prototype.setItem;
+    let writes = 0;
+    Storage.prototype.setItem = function (k, v) {
+      // Let the first two keys land, then run out of room.
+      if (k.startsWith("life-improver:") && ++writes === 3) throw new DOMException("full", "QuotaExceededError");
+      return real.call(this, k, v);
+    };
+    try {
+      expect(() => importData(good())).toThrow("This device has no room for the file.");
+    } finally {
+      Storage.prototype.setItem = real;
+    }
+    expect(JSON.parse(localStorage.getItem(KEYS.scores))).toEqual({ "3-3": 3 });
+    expect(JSON.parse(localStorage.getItem(KEYS.quick))).toEqual({ 2: 2 });
+    expect(localStorage.getItem(KEYS.focus)).toBeNull();
+    expect(localStorage.getItem(KEYS.checkins)).toBeNull();
+  });
+
   it("rejects text that is not JSON", () => {
     expect(() => importData("hello")).toThrow("not valid JSON");
   });

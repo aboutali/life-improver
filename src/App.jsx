@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import Header from "./components/Header.jsx";
 import TabBar from "./components/TabBar.jsx";
 import Overview from "./components/Overview.jsx";
@@ -10,14 +10,27 @@ import Onboarding from "./components/Onboarding.jsx";
 import CheckIn from "./components/CheckIn.jsx";
 import Journey from "./components/Journey.jsx";
 import Settings from "./components/Settings.jsx";
+import ErrorBoundary from "./components/ErrorBoundary.jsx";
 import { useScores } from "./hooks/useScores.js";
 import { useQuickScores } from "./hooks/useQuickScores.js";
 import { useFocus } from "./hooks/useFocus.js";
 import { useCheckins } from "./hooks/useCheckins.js";
 import { useRoute, href } from "./lib/router.js";
 
+// Reading and form screens sit in a narrower column.
+const NARROW = new Set(["/", "/welcome", "/checkin", "/journey", "/settings"]);
+
 export default function App() {
-  const { path, navigate } = useRoute();
+  const { path, focusKey, navigate: go } = useRoute();
+  const mainRef = useRef(null);
+
+  // Leaving Settings for the welcome screen means a reset: replace the entry
+  // so Back does not return to a screen of data that is gone.
+  const navigate = useCallback(
+    (next, opts) =>
+      go(next, opts ?? (path === "/settings" && next === "/welcome" ? { replace: true } : undefined)),
+    [go, path]
+  );
   const scores = useScores();
   const quick = useQuickScores();
   const focus = useFocus();
@@ -27,8 +40,17 @@ export default function App() {
   const isNewcomer = !hasQuick && scores.scoredCount === 0;
 
   useEffect(() => {
-    if (path === "/" && isNewcomer) navigate("/welcome");
-  }, [path, isNewcomer, navigate]);
+    if (path === "/" && isNewcomer) go("/welcome", { replace: true, quiet: true });
+  }, [path, isNewcomer, go]);
+
+  // After a route change, move focus to the new screen's heading. Not on first load.
+  useEffect(() => {
+    if (focusKey === 0) return;
+    const h2 = mainRef.current?.querySelector("h2");
+    if (!h2) return;
+    if (!h2.hasAttribute("tabindex")) h2.setAttribute("tabindex", "-1");
+    h2.focus({ preventScroll: true });
+  }, [focusKey]);
 
   const shared = { scores, quick, focus, checkins, navigate };
 
@@ -62,24 +84,29 @@ export default function App() {
       screen = <Today {...shared} />;
   }
 
+  const maxWidth = NARROW.has(path) ? 720 : 960;
+  const footLink = { color: "#2B6CB0", display: "inline-flex", alignItems: "center", minHeight: 44, padding: "0 12px" };
+
   return (
     <div style={{ minHeight: "100vh" }}>
       <Header path={path} />
       <TabBar path={path} />
 
-      <main style={{ maxWidth: 960, margin: "0 auto", padding: "24px 24px 64px" }}>
-        {screen}
+      <main ref={mainRef} style={{ maxWidth: 960, margin: "0 auto", padding: "24px 24px 64px" }}>
+        <div className="app-screen" style={{ maxWidth, margin: "0 auto" }}>
+          <ErrorBoundary resetKey={path}>{screen}</ErrorBoundary>
+        </div>
       </main>
 
       <footer style={{ borderTop: "1px solid #D5D5D5", background: "#fff", padding: "16px 24px", textAlign: "center" }}>
         <p style={{ fontSize: 12, color: "#AAA" }}>
           Built on the work of Aristotle, Frankl, Gottman, Maslow, Csikszentmihalyi, and the traditions that came before.
         </p>
-        <p style={{ fontSize: 12, marginTop: 8 }}>
-          <a href={href("/settings")} style={{ color: "#2B6CB0", display: "inline-block", padding: "12px 8px" }}>
-            Settings &amp; privacy
-          </a>
-        </p>
+        <nav aria-label="More" className="app-foot" style={{ fontSize: 12, marginTop: 8 }}>
+          <a href={href("/framework")} style={footLink}>Framework</a>
+          <a href={href("/sources")} style={footLink}>Sources</a>
+          <a href={href("/settings")} style={footLink}>Settings &amp; privacy</a>
+        </nav>
       </footer>
     </div>
   );

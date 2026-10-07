@@ -24,10 +24,42 @@ async function toStep2() {
 }
 
 describe("Onboarding", () => {
-  it("starts with intro, privacy line and step indicator", () => {
+  it("starts with the hero: eyebrow, headline, privacy line and Begin", () => {
     render(<Harness navigate={vi.fn()} />);
-    expect(screen.getByText("1 of 3")).toBeInTheDocument();
+    expect(screen.getByText("Life Improver")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "Your whole life. In one view." })).toBeInTheDocument();
     expect(screen.getByText("Everything stays on this device.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Begin" })).toBeInTheDocument();
+  });
+
+  it("records a slider left at 5 when a key or click lands on it", async () => {
+    render(<Harness navigate={vi.fn()} />);
+    await toStep2();
+    const sliders = screen.getAllByRole("slider");
+    expect(screen.getAllByText("Not rated")).toHaveLength(7);
+    // Keyboard: keyup of an arrow key records the resting value.
+    fireEvent.keyUp(sliders[0], { key: "ArrowRight" });
+    expect(screen.getByText("1 of 7 rated.")).toBeInTheDocument();
+    expect(screen.getByLabelText(FRAMEWORK[0].domain)).toHaveValue("5");
+    // Other keys do not.
+    fireEvent.keyUp(sliders[1], { key: "Tab" });
+    expect(screen.getByText("1 of 7 rated.")).toBeInTheDocument();
+    ["Home", "End", "PageUp", "PageDown"].forEach((key, i) => fireEvent.keyUp(sliders[i + 1], { key }));
+    expect(screen.getByText("5 of 7 rated.")).toBeInTheDocument();
+    // Pointer: a click records it too.
+    fireEvent.click(sliders[5]);
+    expect(screen.getByText("6 of 7 rated.")).toBeInTheDocument();
+  });
+
+  it("moves focus into the picker, and back to Choose another when it closes", async () => {
+    render(<Harness navigate={vi.fn()} />);
+    await toStep2();
+    [8, 7, 2, 6].forEach((v, i) => rate(FRAMEWORK[i].domain, v));
+    await userEvent.click(screen.getByRole("button", { name: "Next" }));
+    await userEvent.click(screen.getByRole("button", { name: "Choose another" }));
+    expect(screen.getByRole("heading", { name: "Choose where to begin" })).toHaveFocus();
+    await userEvent.click(screen.getByRole("button", { name: "Keep the suggestion" }));
+    expect(screen.getByRole("button", { name: "Choose another" })).toHaveFocus();
   });
 
   it("shows seven unset sliders and gates Next on four ratings", async () => {

@@ -139,8 +139,26 @@ describe("nextPractice", () => {
     expect(nextPractice(focus, fw, checkins, "2026-10-07").practiceIndex).toBe(2);
   });
 
-  it("falls back to index 0 once everything is skipped", () => {
+  it("wraps to index 0 once everything is skipped, resetting the skips", () => {
     const f = { ...focus, practiceIndex: 3, skipped: [0, 1, 2] };
-    expect(nextPractice(f, fw, [], "2026-10-07").practiceIndex).toBe(0);
+    const next = nextPractice(f, fw, [], "2026-10-07");
+    expect(next.practiceIndex).toBe(0);
+    expect(next.skipped).toEqual([3]);
+  });
+
+  it("moves on from the current practice even when all others were skipped", () => {
+    const f = { ...focus, practiceIndex: 1, skipped: [0, 2, 3] };
+    const next = nextPractice(f, fw, [], "2026-10-07");
+    expect(next.practiceIndex).toBe(2);
+    expect(next.skipped).toEqual([1]);
+  });
+
+  it("always changes the practice across repeated swaps", () => {
+    let f = { ...focus, practiceIndex: 0, skipped: [] };
+    for (let i = 0; i < 9; i++) {
+      const next = nextPractice(f, fw, [], "2026-10-07");
+      expect(next.practiceIndex).not.toBe(f.practiceIndex);
+      f = next;
+    }
   });
 });

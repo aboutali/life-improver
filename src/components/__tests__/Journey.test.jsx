@@ -48,6 +48,18 @@ describe("Journey", () => {
     expect(within(items[2]).getByText("Sep 23, 2026")).toBeInTheDocument();
   });
 
+  it("uses the accent only for a rise, never red", () => {
+    const list = [
+      mk("2026-09-23", "2026-W39", 1, 0, 4),
+      mk("2026-09-30", "2026-W40", 1, 0, 6),
+      mk("2026-09-23", "2026-W39", 1, 1, 6),
+      mk("2026-09-30", "2026-W40", 1, 1, 4),
+    ];
+    render(<Journey {...props(list)} />);
+    expect(screen.getByText(/\+2/).closest(".jr-chip")).toHaveClass("up");
+    expect(screen.getByText(/−2/).closest(".jr-chip")).not.toHaveClass("up");
+  });
+
   it("formats falling and unchanged scores", () => {
     const list = [
       mk("2026-09-23", "2026-W39", 1, 0, 6),

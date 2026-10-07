@@ -1,13 +1,13 @@
 import { usePersistentState } from "./usePersistentState.js";
 import { FRAMEWORK } from "../data/framework.js";
-import { KEYS } from "../lib/storage.js";
+import { KEYS, isScoreMap } from "../lib/storage.js";
 
 // Score keys are `${domainId}-${subIndex}` so they survive sub reordering by
 // position only — renaming or removing a sub will orphan a stored score.
 const key = (domainId, subIndex) => `${domainId}-${subIndex}`;
 
 export function useScores() {
-  const [scores, setScores] = usePersistentState(KEYS.scores, {});
+  const [scores, setScores] = usePersistentState(KEYS.scores, {}, isScoreMap);
 
   const get = (domainId, subIndex) => scores[key(domainId, subIndex)] || null;
 

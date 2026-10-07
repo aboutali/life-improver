@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { FRAMEWORK } from "../data/framework.js";
 
 // Where could the week's focus begin? The three lowest full-scored subs; when
@@ -32,14 +33,28 @@ function optionsFor(scores, quickScores) {
 
 // Shared "choose another" list, used by Today and Onboarding.
 // `scores` is the useScores return; `quickScores` is a plain { domainId: 1..10 } map.
-export default function FocusPicker({ scores, quickScores = {}, current, onPick, onClose }) {
+export default function FocusPicker({
+  scores,
+  quickScores = {},
+  current,
+  onPick,
+  onClose,
+  currentLabel = "Suggested",
+  closeLabel = "Keep the suggestion",
+}) {
+  const headingRef = useRef(null);
+  // Opening the picker moves focus to its heading so keyboard and screen-reader
+  // users land on the new content.
+  useEffect(() => {
+    if (headingRef.current) headingRef.current.focus();
+  }, []);
   const options = optionsFor(scores, quickScores);
   const hint =
     scores.scoredCount > 0 ? "Your three lowest scores." : "The subjects within your lowest domain.";
 
   return (
     <div className="fp" role="group" aria-labelledby="fp-title">
-      <h3 id="fp-title" className="sf fp-title">Choose where to begin</h3>
+      <h3 id="fp-title" ref={headingRef} tabIndex={-1} className="sf fp-title">Choose where to begin</h3>
       <p className="fp-hint">{hint}</p>
       <ul className="fp-list">
         {options.map((o) => {
@@ -58,7 +73,7 @@ export default function FocusPicker({ scores, quickScores = {}, current, onPick,
                   <span className="sf fp-name">{o.name}</span>
                 </span>
                 <span className="fp-opt-note">
-                  {isCurrent ? "Suggested" : o.note}
+                  {isCurrent ? currentLabel : o.note}
                 </span>
               </button>
             </li>
@@ -66,7 +81,7 @@ export default function FocusPicker({ scores, quickScores = {}, current, onPick,
         })}
       </ul>
       <button type="button" className="btn btn-tap" onClick={onClose}>
-        Keep the suggestion
+        {closeLabel}
       </button>
     </div>
   );

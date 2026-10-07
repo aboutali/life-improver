@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FRAMEWORK } from "../data/framework.js";
-import { isoWeek, toLocalDate } from "../lib/dates.js";
+import { isoWeek } from "../lib/dates.js";
+import { useToday } from "../hooks/useToday.js";
 import { changeSinceFirst, hasCheckinThisWeek, seriesFor } from "../lib/trends.js";
 import { nextPractice } from "../lib/recommend.js";
 import Sparkline from "./Sparkline.jsx";
@@ -52,10 +53,52 @@ function Segmented({ legend, name, options, value, onChange, className = "" }) {
   );
 }
 
+// The reward view takes focus on mount so the save is announced and the
+// keyboard is not left on a button that has just disappeared.
+function Reward({ result, sub, onKeep, onSwap }) {
+  const headingRef = useRef(null);
+  useEffect(() => {
+    headingRef.current?.focus();
+  }, []);
+  const change = changeSinceFirst(result.series);
+  return (
+    <div className="cd ci-reward" style={{ textAlign: "center", padding: "32px 20px" }}>
+      <h2 className="sf" tabIndex={-1} ref={headingRef} style={{ fontSize: "var(--fs-title)", fontWeight: 400, color: "#1A1A1A", marginBottom: 6 }}>
+        Check-in saved
+      </h2>
+      <p className="sf" style={{ fontSize: "var(--fs-lead)", color: "#1A1A1A", maxWidth: 420, margin: "0 auto 20px" }}>
+        {rewardLine(change)}
+      </p>
+      <p style={{ fontSize: 13, color: "#888" }}>{sub.name}</p>
+      <p className="sf" style={{ fontSize: "var(--fs-display)", lineHeight: 1.1, color: "#2B6CB0" }}>
+        {result.score}
+      </p>
+      <p style={{ fontSize: 12, color: "#888" }}>out of 10</p>
+      {change !== null && (
+        <p style={{ fontSize: 14, color: "#555", marginTop: 4 }}>
+          {formatChange(change)} since your first check-in
+        </p>
+      )}
+      <div style={{ display: "flex", justifyContent: "center", margin: "16px 0 24px" }}>
+        <Sparkline series={result.series} width={200} height={48} label={sub.name} />
+      </div>
+      <div className="ci-actions" style={{ justifyContent: "center" }}>
+        <button type="button" className="btn btn-primary" onClick={onKeep}>
+          Keep this practice
+        </button>
+        <button type="button" className="btn" onClick={onSwap}>
+          Swap practice
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function CheckIn({ scores, focus, checkins, navigate }) {
   const f = focus.focus;
   const domain = f ? FRAMEWORK.find((d) => d.id === f.domainId) : null;
   const sub = domain ? domain.subs[f.subIndex] : null;
+  const today = useToday();
 
   const [practised, setPractised] = useState(null);
   const [score, setScore] = useState(() => (sub ? scores.get(f.domainId, f.subIndex) : null));
@@ -65,7 +108,7 @@ export default function CheckIn({ scores, focus, checkins, navigate }) {
   if (!f || !sub) {
     return (
       <div className="cd" style={{ textAlign: "center", padding: 40 }}>
-        <h2 className="sf" style={{ fontSize: "var(--fs-title)", fontWeight: 400, color: "#1A1A1A", marginBottom: 8 }}>
+        <h2 className="sf" tabIndex={-1} style={{ fontSize: "var(--fs-title)", fontWeight: 400, color: "#1A1A1A", marginBottom: 8 }}>
           Weekly check-in
         </h2>
         <p style={{ fontSize: 14, color: "#666", marginBottom: 20 }}>
@@ -78,8 +121,12 @@ export default function CheckIn({ scores, focus, checkins, navigate }) {
     );
   }
 
-  const practice = sub.ideas[f.practiceIndex];
-  const today = toLocalDate();
+  // A stored index can outlive an edit to the framework: fall back to the first practice.
+  const practiceIndex =
+    Number.isInteger(f.practiceIndex) && f.practiceIndex >= 0 && f.practiceIndex < sub.ideas.length
+      ? f.practiceIndex
+      : 0;
+  const practice = sub.ideas[practiceIndex];
   const already = hasCheckinThisWeek(checkins.checkins, today);
   const ready = practised !== null && score !== null;
 
@@ -89,10 +136,10 @@ export default function CheckIn({ scores, focus, checkins, navigate }) {
     const entry = {
       id: new Date().toISOString(),
       date: today,
-      week: isoWeek(),
+      week: isoWeek(today),
       domainId: f.domainId,
       subIndex: f.subIndex,
-      practiceIndex: f.practiceIndex,
+      practiceIndex,
       practised,
       score,
       note: note.trim(),
@@ -105,47 +152,22 @@ export default function CheckIn({ scores, focus, checkins, navigate }) {
   };
 
   if (result) {
-    const change = changeSinceFirst(result.series);
-    const swap = () => {
-      focus.setFocus(nextPractice(f, FRAMEWORK, result.updated, today));
-      navigate("/");
-    };
     return (
-      <div className="cd ci-reward" style={{ textAlign: "center", padding: "32px 20px" }}>
-        <h2 className="sf" style={{ fontSize: "var(--fs-title)", fontWeight: 400, color: "#1A1A1A", marginBottom: 6 }}>
-          Check-in saved
-        </h2>
-        <p className="sf" style={{ fontSize: "var(--fs-lead)", color: "#1A1A1A", maxWidth: 420, margin: "0 auto 20px" }}>
-          {rewardLine(change)}
-        </p>
-        <p style={{ fontSize: 13, color: "#888" }}>{sub.name}</p>
-        <p className="sf" style={{ fontSize: "var(--fs-display)", lineHeight: 1.1, color: "#2B6CB0" }}>
-          {result.score}
-        </p>
-        <p style={{ fontSize: 12, color: "#888" }}>out of 10</p>
-        {change !== null && (
-          <p style={{ fontSize: 14, color: "#555", marginTop: 4 }}>
-            {formatChange(change)} since your first check-in
-          </p>
-        )}
-        <div style={{ display: "flex", justifyContent: "center", margin: "16px 0 24px" }}>
-          <Sparkline series={result.series} width={200} height={48} label={sub.name} />
-        </div>
-        <div className="ci-actions" style={{ justifyContent: "center" }}>
-          <button type="button" className="btn btn-primary" onClick={() => navigate("/")}>
-            Keep this practice
-          </button>
-          <button type="button" className="btn" onClick={swap}>
-            Swap practice
-          </button>
-        </div>
-      </div>
+      <Reward
+        result={result}
+        sub={sub}
+        onKeep={() => navigate("/")}
+        onSwap={() => {
+          focus.setFocus(nextPractice({ ...f, practiceIndex }, FRAMEWORK, result.updated, today));
+          navigate("/");
+        }}
+      />
     );
   }
 
   return (
     <form onSubmit={save} aria-labelledby="ci-title">
-      <h2 id="ci-title" className="sf" style={{ fontSize: "var(--fs-title)", fontWeight: 400, color: "#1A1A1A", marginBottom: 12 }}>
+      <h2 id="ci-title" className="sf" tabIndex={-1} style={{ fontSize: "var(--fs-title)", fontWeight: 400, color: "#1A1A1A", marginBottom: 12 }}>
         Weekly check-in
       </h2>
 
@@ -214,9 +236,19 @@ export default function CheckIn({ scores, focus, checkins, navigate }) {
       </div>
 
       <div className="ci-actions">
-        <button type="submit" className="btn btn-primary" disabled={!ready}>
+        <button
+          type="submit"
+          className="btn btn-primary ci-save"
+          disabled={!ready}
+          aria-describedby={ready ? undefined : "ci-hint"}
+        >
           Save check-in
         </button>
+        {!ready && (
+          <p id="ci-hint" className="ci-hint">
+            Answer the first two questions to save.
+          </p>
+        )}
       </div>
     </form>
   );
