@@ -93,7 +93,7 @@ export default function App() {
       <TabBar path={path} />
 
       <main ref={mainRef} style={{ maxWidth: 960, margin: "0 auto", padding: "24px 24px 64px" }}>
-        <div className="app-screen" style={{ maxWidth, margin: "0 auto" }}>
+        <div className="app-screen" style={{ maxWidth }}>
           <ErrorBoundary resetKey={path}>{screen}</ErrorBoundary>
         </div>
       </main>

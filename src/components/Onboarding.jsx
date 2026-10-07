@@ -93,7 +93,7 @@ export default function Onboarding({ scores, quick, focus, checkins, navigate })
       {step === 1 && (
         <section className="cd wl-hero">
           <p className="wl-eyebrow">Life Improver</p>
-          <h2 className="sf wl-title" tabIndex={-1} ref={headingRef}>Your whole life. In one view.</h2>
+          <h2 className="sf wl-title" tabIndex={-1} ref={headingRef}>Your whole life.<br />In one view.</h2>
           <p className="sf wl-lead">
             Name how seven grounds of life feel today, and we will suggest one practice to tend this week.
           </p>

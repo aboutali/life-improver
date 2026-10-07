@@ -18,7 +18,7 @@ describe("App", () => {
     render(<App />);
     await waitFor(() => expect(window.location.hash).toBe("#/welcome"));
     expect(window.history.length).toBe(before);
-    expect(screen.getByRole("heading", { level: 2, name: "Your whole life. In one view." })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: /Your whole life\.\s*In one view\./ })).toBeInTheDocument();
   });
 
   it("does not steal focus on first load", async () => {

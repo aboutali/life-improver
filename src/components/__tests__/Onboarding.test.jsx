@@ -27,7 +27,7 @@ describe("Onboarding", () => {
   it("starts with the hero: eyebrow, headline, privacy line and Begin", () => {
     render(<Harness navigate={vi.fn()} />);
     expect(screen.getByText("Life Improver")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 2, name: "Your whole life. In one view." })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: /Your whole life\.\s*In one view\./ })).toBeInTheDocument();
     expect(screen.getByText("Everything stays on this device.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Begin" })).toBeInTheDocument();
   });
