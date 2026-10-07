@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { test, expect } from "@playwright/test";
 import { FRAMEWORK } from "../src/data/framework.js";
-import { freezeAt, seed, go, readStore, trackErrors, friction } from "./helpers.js";
+import { freezeAt, seed, go, readStore, trackErrors, friction, RETURNING } from "./helpers.js";
 
 const ART = path.join("e2e", ".artifacts");
 
@@ -62,11 +62,13 @@ test.describe("Group 1: first time and first week", () => {
     await shot(page, testInfo, "S01", "1-welcome");
 
     await page.getByRole("button", { name: "Begin" }).click();
+    await expect(page).toHaveURL(/#\/welcome\/rate$/);
     await expect(page.getByRole("button", { name: "Next" })).toBeDisabled();
     for (const [name, v] of Object.entries(ALL_SEVEN)) await rate(page, name, v);
     await expect(page.getByRole("status").filter({ hasText: "of 7 rated" })).toHaveText("7 of 7 rated.");
     await shot(page, testInfo, "S01", "2-rated");
     await page.getByRole("button", { name: "Next" }).click();
+    await expect(page).toHaveURL(/#\/welcome\/focus$/);
 
     await expect(page.getByRole("heading", { name: "A place to begin" })).toBeVisible();
     const lowest = byId(4); // Relationships & Love, rated 2
@@ -84,11 +86,15 @@ test.describe("Group 1: first time and first week", () => {
     await shot(page, testInfo, "S01", "4-today");
 
     expect(await readStore(page, "focus")).toEqual({
-      domainId: 4, subIndex: 0, practiceIndex: 0, startedAt: "2026-10-07", skipped: [],
+      domainId: 4, subIndex: 0, practiceIndex: 0, startedAt: "2026-10-07", skipped: [], origin: "suggested",
     });
     expect(await readStore(page, "quick")).toEqual({ 1: 6, 2: 7, 3: 5, 4: 2, 5: 4, 6: 8, 7: 6 });
+    // The draft is gone once the seed is planted.
+    expect(await page.evaluate(() => sessionStorage.getItem("life-improver:draft"))).toBeNull();
     // Garden shows all seven domains as rated.
     await expect(page.getByText("From your quick scores.")).toBeVisible();
+    // The newcomer banner is gone for someone who has planted.
+    await expect(page.getByText("New here?")).toHaveCount(0);
     expectNoErrors();
   });
 
@@ -134,16 +140,15 @@ test.describe("Group 1: first time and first week", () => {
       await expect(row.locator(".garden-tag")).toHaveText("quick");
     }
     await expect(page.getByText("From your quick scores.")).toBeVisible();
-    // Nothing on Today explains that the three empty rows can be filled later
-    // other than the small "Refine" link under the garden.
+    // The only invitation to rate the three empty rows is the small link below the card.
     const gardenText = await page.locator(".garden").innerText();
-    if (!/rate|add|fill|later/i.test(gardenText)) {
-      friction(testInfo, "Garden shows three empty rows (dash, no bar) with no invitation to rate them; the only hint is the 'Refine with the full assessment' link below the card.");
+    if (!/rate|add|fill|later/i.test(gardenText.replace(/not rated/gi, "").replace(/quick scores/gi, ""))) {
+      friction(testInfo, "Garden still shows three empty rows (dash, no bar) with no invitation to rate them; the only hint is the small 'Refine with the full assessment' link below the card.");
     }
     expectNoErrors();
   });
 
-  test("S03: a newcomer picks another focus on step 3", async ({ page }, testInfo) => {
+  test("S03: a newcomer picks another focus on step 3 from Suggested and from All areas", async ({ page }, testInfo) => {
     const { expectNoErrors } = trackErrors(page);
     await newcomer(page);
     await rateAndContinue(page, ALL_SEVEN);
@@ -151,38 +156,54 @@ test.describe("Group 1: first time and first week", () => {
     await page.getByRole("button", { name: "Choose another" }).click();
     const picker = page.getByRole("group", { name: "Choose where to begin" });
     await expect(picker).toBeVisible();
-    await expect(picker).toContainText("The subjects within your lowest domain.");
-    const opts = picker.locator("button.fp-opt");
-    const lowest = byId(4);
-    await expect(opts).toHaveCount(lowest.subs.length);
-    // All options belong to one domain.
-    await expect(picker.locator(".fp-eyebrow")).toHaveText(Array(lowest.subs.length).fill(lowest.domain));
-    await expect(opts.first()).toHaveAttribute("aria-current", "true");
-    await expect(opts.first()).toContainText("Suggested");
-    await shot(page, testInfo, "S03", "1-picker");
-    friction(testInfo, `Picker on step 3 lists only the ${lowest.subs.length} subs of the lowest domain (${lowest.domain}); there is no way to start in Leisure or Body even though all seven were rated.`);
 
-    const pick = lowest.subs[2];
-    await opts.nth(2).click();
+    // Part 1: three suggestions from the quick ratings (lowest first, sub 0 of each domain).
+    const suggested = picker.getByRole("region", { name: "Suggested" });
+    const sOpts = suggested.locator("button.fp-opt");
+    await expect(sOpts).toHaveCount(3);
+    await expect(sOpts.nth(0)).toContainText(byId(4).subs[0].name); // rated 2
+    await expect(sOpts.nth(0)).toHaveAttribute("aria-current", "true");
+    await expect(sOpts.nth(0)).toContainText("Suggested");
+    await expect(sOpts.nth(1)).toContainText(byId(5).subs[0].name); // rated 4
+    await expect(sOpts.nth(1)).toContainText("4/10 quick");
+    await expect(sOpts.nth(2)).toContainText(byId(3).subs[0].name); // rated 5
+    await shot(page, testInfo, "S03", "1-picker");
+
+    // Part 2: all seven domains are groups; the group holding the suggestion starts open.
+    const all = picker.getByRole("region", { name: "All areas" });
+    const groups = all.locator("button.fp-group");
+    await expect(groups).toHaveCount(7);
+    await expect(all.getByRole("button", { name: byId(4).domain })).toHaveAttribute("aria-expanded", "true");
+    const leisure = byId(7);
+    const leisureGroup = all.getByRole("button", { name: leisure.domain });
+    await expect(leisureGroup).toHaveAttribute("aria-expanded", "false");
+    await leisureGroup.click();
+    await expect(leisureGroup).toHaveAttribute("aria-expanded", "true");
+    await expect(all.locator("button.fp-sub")).toHaveCount(byId(4).subs.length + leisure.subs.length);
+    await shot(page, testInfo, "S03", "2-all-areas");
+    friction(testInfo, "On step 3 the picker opens below 'Plant this seed' and pushes the page to about 2.5 screens on a phone; the suggestion card above it stays visible, so it is unclear which choice is live until the user picks.");
+
+    // A domain that is not the lowest can now be chosen: the old picker could not do this.
+    const pick = leisure.subs[1];
+    await all.getByRole("button", { name: pick.name }).click();
     await expect(page.getByRole("group", { name: "Choose where to begin" })).toHaveCount(0);
     await expect(page.getByRole("heading", { level: 3, name: pick.name })).toBeVisible();
-    await expect(page.getByText("A place you chose to begin.")).toBeVisible();
-    await shot(page, testInfo, "S03", "2-picked");
+    await expect(page.getByText("You chose this place to begin.")).toBeVisible();
+    await shot(page, testInfo, "S03", "3-picked");
 
     await page.getByRole("button", { name: "Plant this seed" }).click();
     await expect(page.getByRole("heading", { level: 3, name: pick.name })).toBeVisible();
     await expect(page.getByText(pick.ideas[0])).toBeVisible();
-    expect(await readStore(page, "focus")).toMatchObject({ domainId: 4, subIndex: 2, practiceIndex: 0 });
-    await shot(page, testInfo, "S03", "3-today");
-    // The reason line on Today changes wording from what the user just saw.
-    const reason = await page.locator(".fc .today-muted").innerText();
-    if (reason !== "A place you chose to begin.") {
-      friction(testInfo, `After choosing a sub by hand, Today's reason line reads "${reason}" (about the domain), which says nothing about the sub the user picked.`);
-    }
+    expect(await readStore(page, "focus")).toMatchObject({ domainId: 7, subIndex: 1, practiceIndex: 0, origin: "picked" });
+    await shot(page, testInfo, "S03", "4-today");
+    // Today repeats the wording the user just saw.
+    await expect(page.locator(".fc .today-muted")).toHaveText("You chose this place to begin.");
+
+    // Changing a rating afterwards makes the pick stale: the suggestion returns.
     expectNoErrors();
   });
 
-  test("S04: a newcomer skips to the full assessment and rates one domain", async ({ page }, testInfo) => {
+  test("S04: a newcomer skips to the full assessment, rates one domain, and goes to Today", async ({ page }, testInfo) => {
     const { expectNoErrors } = trackErrors(page);
     await newcomer(page);
     await page.getByRole("button", { name: "Skip to the full assessment" }).click();
@@ -200,85 +221,82 @@ test.describe("Group 1: first time and first week", () => {
     await shot(page, testInfo, "S04", "2-rated");
     expect(await readStore(page, "scores")).toEqual(Object.fromEntries(values.map((v, i) => [`1-${i}`, v])));
 
-    // Look for any path from Assess back to Today inside the page body.
-    const mainLinks = await page.locator("main").getByRole("link").allInnerTexts();
-    const mainButtons = await page.locator("main").getByRole("button").allInnerTexts();
-    const cta = [...mainLinks, ...mainButtons].filter((t) => /today|plant|focus|begin|practice|next/i.test(t));
-    if (cta.length === 0) {
-      friction(testInfo, "After rating a whole domain on Assess, nothing in the page body points back to Today (no 'See your suggestion' action); the user must notice the Today tab or bottom-nav item. The dashboard labels a 'Focus' but is not actionable.");
-    }
-
-    await page.getByRole("link", { name: "Today", exact: true }).click();
+    // F4: the dashboard points back to Today with a primary button.
+    const toWeek = page.getByRole("button", { name: "See this week's focus" });
+    await expect(toWeek).toBeVisible();
+    await shot(page, testInfo, "S04", "3-dashboard");
+    await toWeek.click();
     await expect(page).toHaveURL(/#\/$/);
     await expect(page.getByRole("heading", { name: "This week, tend one thing." })).toBeVisible();
     await expect(page.getByText(`Your lowest score: ${body.subs[1].name} (3/10).`)).toBeVisible();
     await expect(page.getByRole("heading", { level: 3, name: body.subs[1].name })).toBeVisible();
     await expect(page.getByText("Averages from your full assessment.")).toBeVisible();
-    await shot(page, testInfo, "S04", "3-today");
+    await shot(page, testInfo, "S04", "4-today");
 
     await page.getByRole("button", { name: "Plant this seed" }).click();
     await expect(page.getByText(/Your practice this week/)).toBeVisible();
     await expect(page.getByText("You rated this 3/10.")).toBeVisible();
-    expect(await readStore(page, "focus")).toMatchObject({ domainId: 1, subIndex: 1, startedAt: "2026-10-07" });
-    await shot(page, testInfo, "S04", "4-planted");
+    expect(await readStore(page, "focus")).toMatchObject({ domainId: 1, subIndex: 1, startedAt: "2026-10-07", origin: "suggested" });
+    await shot(page, testInfo, "S04", "5-planted");
     expectNoErrors();
   });
 
-  test("S05: Back or reload during step 2 and step 3", async ({ page }, testInfo) => {
-    const { errors, expectNoErrors } = trackErrors(page);
+  test("S05: Back and reload during step 2 and step 3 keep the draft", async ({ page }, testInfo) => {
+    const { expectNoErrors } = trackErrors(page);
     await newcomer(page);
-    const appUrl = page.url();
 
-    // Step 2 with ratings, then browser Back.
+    // Step 2, rate two, browser Back goes to step 1 inside the app.
     await page.getByRole("button", { name: "Begin" }).click();
+    await expect(page).toHaveURL(/#\/welcome\/rate$/);
     await rate(page, "Body & Vitality", 4);
     await rate(page, "Mind & Learning", 6);
     await shot(page, testInfo, "S05", "1-step2-draft");
     await page.goBack();
-    // Steps are not history entries: Back leaves the app (to the page before it).
-    const leftApp = !page.url().includes("/life-improver/");
-    expect(leftApp).toBe(true);
-    friction(testInfo, "Browser Back (and the Android back gesture) on step 2 or 3 leaves the app entirely: wizard steps are React state, not history entries. The in-page Back button is the only way to step back.");
-    // Coming back to the app, the draft is gone.
-    await page.goto(appUrl);
+    await expect(page).toHaveURL(/#\/welcome$/);
     await expect(page.getByRole("button", { name: "Begin" })).toBeVisible();
+    // Forward again: the ratings are still there.
+    await page.goForward();
+    await expect(page).toHaveURL(/#\/welcome\/rate$/);
+    await expect(page.getByText("2 of 7 rated.")).toBeVisible();
+    await expect(page.getByRole("slider", { name: "Body & Vitality", exact: true })).toHaveValue("4");
 
-    // Step 2 reload.
-    await page.getByRole("button", { name: "Begin" }).click();
-    await rate(page, "Body & Vitality", 4);
-    await rate(page, "Mind & Learning", 6);
+    // Step 2 reload keeps the ratings and the step.
     await rate(page, "Work & Craft", 5);
     await expect(page.getByText("3 of 7 rated.")).toBeVisible();
     await page.reload();
-    // Draft is gone: back at step 1 and nothing was stored.
-    await expect(page.getByRole("button", { name: "Begin" })).toBeVisible();
-    await page.getByRole("button", { name: "Begin" }).click();
-    await expect(page.getByText("0 of 7 rated.")).toBeVisible();
+    await expect(page).toHaveURL(/#\/welcome\/rate$/);
+    await expect(page.getByText("3 of 7 rated.")).toBeVisible();
+    await expect(page.getByRole("slider", { name: "Mind & Learning", exact: true })).toHaveValue("6");
+    await expect(page.getByRole("slider", { name: "Leisure & Pleasure" })).toHaveAttribute("aria-valuetext", "not rated");
+    // Nothing is written to the long-term store until the seed is planted.
     expect((await readStore(page, "quick")) ?? {}).toEqual({});
     await shot(page, testInfo, "S05", "2-after-reload-step2");
-    friction(testInfo, "Reloading on step 2 returns to the welcome screen and discards every rating entered (draft lives only in React state; nothing is written until 'Plant this seed'). No warning, no 'continue where you left off'.");
 
-    // Step 3 reload.
-    for (const [n, v] of Object.entries(ONLY_FOUR)) await rate(page, n, v);
+    // Step 3 reload stays on step 3.
+    await rate(page, "Relationships & Love", 8);
     await page.getByRole("button", { name: "Next" }).click();
     await expect(page.getByRole("heading", { name: "A place to begin" })).toBeVisible();
     await page.reload();
-    await expect(page.getByRole("button", { name: "Begin" })).toBeVisible();
+    await expect(page).toHaveURL(/#\/welcome\/focus$/);
+    await expect(page.getByRole("heading", { name: "A place to begin" })).toBeVisible();
     expect((await readStore(page, "quick")) ?? {}).toEqual({});
     await shot(page, testInfo, "S05", "3-after-reload-step3");
 
-    // Navigating away mid-flow and back also resets.
-    await page.getByRole("button", { name: "Begin" }).click();
-    await rate(page, "Body & Vitality", 4);
+    // The in-page Back button and the browser's Back both return to step 2.
+    await page.getByRole("button", { name: "Back" }).click();
+    await expect(page).toHaveURL(/#\/welcome\/rate$/);
+    await expect(page.getByText("4 of 7 rated.")).toBeVisible();
+    await page.getByRole("button", { name: "Next" }).click();
+    await page.goBack();
+    await expect(page).toHaveURL(/#\/welcome\/rate$/);
+
+    // Leaving for Assess and coming back keeps the draft.
     await page.getByRole("button", { name: "Skip to the full assessment" }).click();
     await expect(page).toHaveURL(/#\/assess$/);
     await page.goBack();
-    await expect(page).toHaveURL(/#\/welcome$/);
-    await expect(page.getByRole("button", { name: "Begin" })).toBeVisible();
+    await expect(page).toHaveURL(/#\/welcome\/rate$/);
+    await expect(page.getByText("4 of 7 rated.")).toBeVisible();
     await shot(page, testInfo, "S05", "4-back-from-assess");
-    // Going back to about:blank runs the seed init script there, which throws
-    // on sessionStorage. That is a test artefact, not an app error.
-    errors.splice(0, errors.length, ...errors.filter((e) => !/sessionStorage/.test(e)));
     expectNoErrors();
   });
 
@@ -293,17 +311,18 @@ test.describe("Group 1: first time and first week", () => {
     // The invitation to practise is there.
     await expect(page.getByRole("button", { name: "Swap practice" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Add to calendar" })).toBeVisible();
-    // But so is the check-in prompt, on day 0.
-    await expect(page.getByRole("heading", { name: "Look back on the week" })).toBeVisible();
-    const checkinBtn = page.getByRole("button", { name: "Check in", exact: true });
-    await expect(checkinBtn).toBeVisible();
-    friction(testInfo, "On the day the seed is planted Today already shows a primary 'Check in' button under 'Look back on the week' (three questions, a minute). There has been no week to look back on; the plant action and the first check-in compete for attention.");
+    // R1: the check-in is not asked for on day 0. Planted Wednesday, it opens Saturday.
+    await expect(page.getByRole("button", { name: "Check in", exact: true })).toHaveCount(0);
+    await expect(page.getByText("Your first check-in opens Saturday.")).toBeVisible();
+    const early = page.getByRole("link", { name: "Check in early" });
+    await expect(early).toBeVisible();
 
-    await checkinBtn.click();
+    // Checking in early is still possible.
+    await early.click();
     await expect(page).toHaveURL(/#\/checkin$/);
     await expect(page.getByText("Did you practise this week?")).toBeVisible();
-    await shot(page, testInfo, "S06", "2-checkin-day0");
-    friction(testInfo, "Opening the check-in on day 0 asks 'Did you practise this week?' with no acknowledgement that the seed was planted today; answering 'Not this week' would record a first mark of nothing.");
+    await shot(page, testInfo, "S06", "2-checkin-early");
+    friction(testInfo, "Checking in early, the form still asks 'Did you practise this week?' on the day the seed was planted, with no note that this is the first day; the 'Not this week' answer would be recorded as a first mark of nothing.");
     expectNoErrors();
   });
 
@@ -315,11 +334,17 @@ test.describe("Group 1: first time and first week", () => {
     const sub = byId(4).subs[0];
     const practice = sub.ideas[0];
 
-    // Practice event.
+    // Practice event: tomorrow (Thursday) at 07:30.
     await page.getByRole("button", { name: "Add to calendar" }).click();
     const panel = page.getByRole("group", { name: "Add to calendar" });
-    await expect(panel.getByLabel("Day")).toHaveValue("0");
-    await expect(panel.getByLabel("Time")).toHaveValue("18:00");
+    await expect(panel.getByLabel("Day")).toHaveValue("4");
+    await expect(panel.getByLabel("Time")).toHaveValue("07:30");
+    await expect(panel.getByText("First one: Thu 8 Oct")).toBeVisible();
+    // Changing the day updates the first-date line.
+    await panel.getByLabel("Day").selectOption("6");
+    await expect(panel.getByText("First one: Sat 10 Oct")).toBeVisible();
+    await panel.getByLabel("Day").selectOption("4");
+    await expect(panel.getByText("First one: Thu 8 Oct")).toBeVisible();
     await shot(page, testInfo, "S07", "1-practice-panel");
     const [dl1] = await Promise.all([
       page.waitForEvent("download"),
@@ -330,11 +355,12 @@ test.describe("Group 1: first time and first week", () => {
     await expect(panel.getByRole("status")).toContainText("Downloaded");
     await shot(page, testInfo, "S07", "2-practice-downloaded");
 
-    // Check-in event.
+    // Check-in event: Sunday 18:00, at least 3 days out.
     await page.getByRole("button", { name: "Remind me weekly" }).click();
     const panel2 = page.getByRole("group", { name: "Add a weekly check-in to my calendar" });
     await expect(panel2.getByLabel("Day")).toHaveValue("0");
     await expect(panel2.getByLabel("Time")).toHaveValue("18:00");
+    await expect(panel2.getByText("First one: Sun 11 Oct")).toBeVisible();
     await shot(page, testInfo, "S07", "3-checkin-panel");
     const [dl2] = await Promise.all([
       page.waitForEvent("download"),
@@ -365,9 +391,9 @@ test.describe("Group 1: first time and first week", () => {
       expect(unfolded).toContain("BEGIN:VEVENT");
       expect(unfolded).toContain("END:VEVENT");
     }
-    // Wednesday 2026-10-07 10:00 -> first Sunday 2026-10-11 at 18:00.
-    expect(a.map.DTSTART).toBe("20261011T180000");
-    expect(a.map.DTEND).toBe("20261011T182000");
+    // Wednesday 2026-10-07: practice Thursday 07:30; check-in Sunday 11 Oct 18:00.
+    expect(a.map.DTSTART).toBe("20261008T073000");
+    expect(a.map.DTEND).toBe("20261008T075000");
     expect(a.map.RRULE).toBe("FREQ=WEEKLY");
     expect(a.map.SUMMARY.replace(/\\,/g, ",").replace(/\\;/g, ";")).toContain(practice.slice(0, 20));
     expect(a.map.DESCRIPTION).toContain(sub.name);
@@ -376,11 +402,8 @@ test.describe("Group 1: first time and first week", () => {
     expect(b.map.RRULE).toBe("FREQ=WEEKLY");
     expect(b.map.SUMMARY).toContain("Weekly check-in");
     expect(b.map.URL).toMatch(/#\/checkin$/);
-
-    if (a.map.DTSTART === b.map.DTSTART) {
-      friction(testInfo, "Practice and check-in calendar events default to the same slot (Sunday 18:00, 20 and 15 minutes), so a user who accepts both defaults gets two overlapping events.");
-    }
-    friction(testInfo, "Planted Wednesday 2026-10-07: the first check-in reminder lands Sunday 2026-10-11, only 4 days into the first practice week, and the first practice slot is also Sunday (the day the check-in asks how the week went). Neither picker explains what the day means or offers 'in a few days'.");
+    // The two defaults no longer collide, and the first check-in falls after it opens (Saturday).
+    expect(a.map.DTSTART).not.toBe(b.map.DTSTART);
     expectNoErrors();
   });
 
@@ -388,40 +411,192 @@ test.describe("Group 1: first time and first week", () => {
     const { expectNoErrors } = trackErrors(page);
     await freezeAt(page);
     await seed(page, {});
+    const banner = page.getByText("New here?");
 
-    // Check-in.
+    // Check-in: explains itself and links straight to the welcome.
     await go(page, "/checkin");
     await expect(page.getByRole("heading", { name: "Weekly check-in" })).toBeVisible();
     await expect(page.getByText(/A check-in looks back at one practice/)).toBeVisible();
+    await expect(banner).toBeVisible();
     await shot(page, testInfo, "S08", "1-checkin");
-    const choose = page.getByRole("button", { name: "Choose a focus first" });
-    await expect(choose).toBeVisible();
+    await expect(page.getByRole("link", { name: "Choose a focus first" })).toHaveCount(0);
+    const begin = page.getByRole("main").getByRole("link", { name: "Begin with a one-minute welcome", exact: true });
+    await expect(begin).toBeVisible();
+    friction(testInfo, "Check-in empty state for a newcomer says 'Choose a focus, and come back when the week has had its say' above a button that starts the welcome, and the slim banner above repeats the same link; the sentence and the button disagree.");
 
-    // Journey.
+    // Journey: same link, one tap.
     await go(page, "/journey");
     await expect(page.getByRole("heading", { name: "Journey" })).toBeVisible();
     await expect(page.getByText(/Nothing here yet/)).toBeVisible();
     await shot(page, testInfo, "S08", "2-journey");
-
-    // Journey -> check-in -> "Choose a focus first" -> welcome.
-    await page.getByRole("link", { name: "Make a first check-in" }).click();
-    await expect(page).toHaveURL(/#\/checkin$/);
-    await page.getByRole("button", { name: "Choose a focus first" }).click();
+    await expect(page.getByRole("link", { name: "Make a first check-in" })).toHaveCount(0);
+    await page.getByRole("main").getByRole("link", { name: "Begin with a one-minute welcome", exact: true }).click();
     await expect(page).toHaveURL(/#\/welcome$/);
     await expect(page.getByRole("button", { name: "Begin" })).toBeVisible();
-    await shot(page, testInfo, "S08", "3-chain-ends-welcome");
-    friction(testInfo, "Journey empty state offers 'Make a first check-in', which opens a check-in screen saying 'Choose a focus first', whose button lands on the welcome screen: three taps to learn that the first step is the onboarding. The first CTA should go straight to the welcome ('Begin with a short welcome'), and the check-in empty state should say there is nothing to check in on yet.");
+    await expect(banner).toHaveCount(0);
+    await shot(page, testInfo, "S08", "3-welcome");
 
     // Assess.
     await go(page, "/assess");
     await expect(page.getByText("How are you, really?")).toBeVisible();
     await expect(page.getByText("Pick a domain to start.")).toBeVisible();
+    await expect(banner).toBeVisible();
     await shot(page, testInfo, "S08", "4-assess");
-    // Tabs on empty states still show Today, which bounces to welcome.
+    // The tab bar still shows Today for a newcomer; it bounces to the welcome.
     await page.getByRole("link", { name: "Today", exact: true }).click();
     await expect(page).toHaveURL(/#\/welcome$/);
-    friction(testInfo, "A newcomer's tab bar shows Today, Journey, Assess and Practices as if the app were ready; Today silently redirects to the welcome screen and the tab bar vanishes, so the user cannot get back to Assess or Journey except via 'Skip to the full assessment'.");
+    friction(testInfo, "A newcomer's tab bar still lists Today and Journey as if the app were ready; Today redirects to the welcome and the tabs vanish, so a newcomer who tapped Assess from the welcome can only return to it via 'Skip to the full assessment'. The slim banner helps but is easy to miss on a phone.");
+    expectNoErrors();
+  });
 
+  test("S30: a user restores a saved copy from the welcome screen", async ({ page }, testInfo) => {
+    const { expectNoErrors } = trackErrors(page);
+    await newcomer(page);
+    await expect(page.getByText("I have a saved copy")).toBeVisible();
+    const input = page.locator('input[type="file"]');
+    await expect(input).toHaveCount(1);
+
+    // A wrong file explains itself and changes nothing.
+    await input.setInputFiles({ name: "notes.json", mimeType: "application/json", buffer: Buffer.from('{"hello":1}') });
+    await expect(page.getByRole("alert")).toHaveText("This file is not a Life Improver export.");
+    await shot(page, testInfo, "S30", "1-bad-file");
+    friction(testInfo, "'I have a saved copy' is a faint grey underlined line under Begin, and a wrong file says 'not a Life Improver export' without saying what a saved copy is (the .json from Settings > Download a copy).");
+    expect((await readStore(page, "checkins")) ?? []).toEqual([]);
+
+    // A real export restores and lands on Today with a notice.
+    const copy = {
+      app: "life-improver",
+      schema: 2,
+      exportedAt: "2026-10-01T09:00:00.000Z",
+      data: { scores: RETURNING.scores, quick: RETURNING.quick, focus: RETURNING.focus, checkins: RETURNING.checkins },
+    };
+    await input.setInputFiles({ name: "life-improver-2026-10-01.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(copy)) });
+    await expect(page).toHaveURL(/#\/$/);
+    await expect(page.getByRole("heading", { name: "This week, tend one thing." })).toBeVisible();
+    await expect(page.getByText("Restored 2 check-ins.")).toBeVisible();
+    await expect(page.getByRole("heading", { level: 3, name: byId(1).subs[2].name })).toBeVisible();
+    await shot(page, testInfo, "S30", "2-restored-today");
+    expect(await readStore(page, "checkins")).toHaveLength(2);
+    expect(await readStore(page, "focus")).toMatchObject({ domainId: 1, subIndex: 2 });
+    // No newcomer banner and no confirm dialog was needed.
+    await expect(page.getByText("New here?")).toHaveCount(0);
+
+    // The notice can be dismissed.
+    await page.getByRole("button", { name: "Dismiss" }).click();
+    await expect(page.getByText("Restored 2 check-ins.")).toHaveCount(0);
+    expectNoErrors();
+  });
+
+  test("S31: a deep link to the last welcome step without a draft returns to rating", async ({ page }, testInfo) => {
+    const { expectNoErrors } = trackErrors(page);
+    await freezeAt(page);
+    await seed(page, {});
+
+    await go(page, "/welcome/focus");
+    await expect(page).toHaveURL(/#\/welcome\/rate$/);
+    await expect(page.getByRole("heading", { name: "How does each ground feel?" })).toBeVisible();
+    await expect(page.getByText("0 of 7 rated.")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Next" })).toBeDisabled();
+    await shot(page, testInfo, "S31", "1-redirected");
+
+    // With fewer than 4 ratings the last step is still out of reach.
+    await rate(page, "Body & Vitality", 5);
+    await page.goto("#/welcome/focus");
+    await expect(page).toHaveURL(/#\/welcome\/rate$/);
+    await expect(page.getByText("1 of 7 rated.")).toBeVisible();
+
+    // With 4 ratings in the draft the same link opens the step.
+    for (const [n, v] of Object.entries(ONLY_FOUR)) await rate(page, n, v);
+    await page.goto("#/welcome/focus");
+    await expect(page).toHaveURL(/#\/welcome\/focus$/);
+    await expect(page.getByRole("heading", { name: "A place to begin" })).toBeVisible();
+    await expect(page.getByText("Your lowest domain: Work & Craft (3/10).")).toBeVisible();
+    await shot(page, testInfo, "S31", "2-with-draft");
+    expectNoErrors();
+  });
+
+  test("S32: a newcomer on Practices sees the welcome banner, a returning user does not", async ({ page }, testInfo) => {
+    const { expectNoErrors } = trackErrors(page);
+    await freezeAt(page);
+    await seed(page, {});
+
+    await go(page, "/practices");
+    await expect(page.getByRole("heading", { level: 2, name: /ways forward/ })).toBeVisible();
+    const banner = page.locator(".notice-slim");
+    await expect(banner).toContainText("New here?");
+    await shot(page, testInfo, "S32", "1-practices-newcomer");
+    await banner.getByRole("link", { name: "Begin with a one-minute welcome." }).click();
+    await expect(page).toHaveURL(/#\/welcome$/);
+    await expect(page.locator(".notice-slim")).toHaveCount(0);
+    await shot(page, testInfo, "S32", "2-welcome");
+
+    // Rating one sub in Assess is enough to stop being a newcomer.
+    await go(page, "/assess");
+    await expect(page.locator(".notice-slim")).toBeVisible();
+    await page.getByRole("button", { name: /^Body & Vitality/ }).click();
+    await rate(page, `${byId(1).subs[0].name} score`, 6);
+    await expect(page.locator(".notice-slim")).toHaveCount(0);
+    expectNoErrors();
+  });
+
+  test("S33: the first check-in opens on day 3; before that it is offered early and quietly", async ({ page }, testInfo) => {
+    const { expectNoErrors } = trackErrors(page);
+    await freezeAt(page);
+    // Planted Monday 5 Oct, so on Wednesday it opens Thursday.
+    await seed(page, {
+      quick: RETURNING.quick,
+      focus: { domainId: 1, subIndex: 2, practiceIndex: 0, startedAt: "2026-10-05", skipped: [], origin: "suggested" },
+    });
+    await go(page, "/");
+    await expect(page.getByText(/Your practice this week/)).toBeVisible();
+    await expect(page.getByText("Your first check-in opens Thursday.")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Check in early" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Check in", exact: true })).toHaveCount(0);
+    await shot(page, testInfo, "S33", "1-before");
+
+    // The clock moves to Thursday: the day-check runs every minute, no reload.
+    await page.clock.fastForward("24:00:00");
+    await expect(page.getByRole("button", { name: "Check in", exact: true })).toBeVisible();
+    await expect(page.getByText(/Your first check-in opens/)).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Check in early" })).toHaveCount(0);
+    await expect(page.getByText("Three questions. About a minute.")).toBeVisible();
+    await shot(page, testInfo, "S33", "2-open");
+
+    await page.getByRole("button", { name: "Check in", exact: true }).click();
+    await expect(page).toHaveURL(/#\/checkin$/);
+    await expect(page.getByText("Did you practise this week?")).toBeVisible();
+    expectNoErrors();
+  });
+
+  test("S34: the calendar's first dates follow the day the seed is planted", async ({ page }, testInfo) => {
+    const { expectNoErrors } = trackErrors(page);
+    // Sunday 11 Oct, 10:00: tomorrow is Monday; the check-in is 3+ days away, so Sunday 18 Oct.
+    await freezeAt(page, new Date("2026-10-11T10:00:00"));
+    await seed(page, {
+      quick: RETURNING.quick,
+      focus: { domainId: 1, subIndex: 2, practiceIndex: 0, startedAt: "2026-10-11", skipped: [], origin: "suggested" },
+    });
+    await go(page, "/");
+    await page.getByRole("button", { name: "Add to calendar" }).click();
+    const panel = page.getByRole("group", { name: "Add to calendar" });
+    await expect(panel.getByLabel("Day")).toHaveValue("1");
+    await expect(panel.getByLabel("Time")).toHaveValue("07:30");
+    await expect(panel.getByText("First one: Mon 12 Oct")).toBeVisible();
+
+    await page.getByRole("button", { name: "Remind me weekly" }).click();
+    const panel2 = page.getByRole("group", { name: "Add a weekly check-in to my calendar" });
+    await expect(panel2.getByLabel("Day")).toHaveValue("0");
+    await expect(panel2.getByText("First one: Sun 18 Oct")).toBeVisible();
+    // The date stays on a Sunday, 3 or more days away, for any other chosen day.
+    await panel2.getByLabel("Day").selectOption("3");
+    await expect(panel2.getByText("First one: Wed 14 Oct")).toBeVisible();
+    await shot(page, testInfo, "S34", "1-panels");
+    const [dl] = await Promise.all([
+      page.waitForEvent("download"),
+      panel2.getByRole("button", { name: "Download calendar file" }).click(),
+    ]);
+    const text = fs.readFileSync(await dl.path(), "utf8");
+    expect(text).toContain("DTSTART:20261014T180000");
     expectNoErrors();
   });
 });
