@@ -50,7 +50,7 @@ const BOTTOM = TABS.filter((t) => ICONS[t.path]);
 
 export default function TabBar({ path }) {
   // The welcome screen is a one-time flow: no navigation there.
-  if (path === "/welcome") return null;
+  if (path === "/welcome" || path.startsWith("/welcome/")) return null;
 
   return (
     <>

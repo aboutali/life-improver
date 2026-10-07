@@ -6,15 +6,14 @@ export default function Sources() {
   return (
     <div>
       <div style={{ marginBottom: 24 }}>
-        <p className="sf" style={{ fontSize: "var(--fs-lead)", color: "#1A1A1A", marginBottom: 8 }}>
-          The thinking behind it.
-        </p>
+        <h2 className="sf cat-title">The thinking behind it.</h2>
         <p style={{ fontSize: 14, color: "#666", maxWidth: 600 }}>
           None of this is invented. Every dimension, every category, every practice traces back to research, philosophy, or tradition that has stood the test of time.
         </p>
-        <p style={{ fontSize: 13, color: "#999", marginTop: 8 }}>
+        <p style={{ fontSize: 13, color: "#767676", marginTop: 8 }}>
           {total} sources · {SOURCES.length} disciplines
         </p>
+        <a className="cat-link" href="#/practices">Browse the practices</a>
       </div>
 
       {SOURCES.map((cat, ci) => (

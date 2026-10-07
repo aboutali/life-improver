@@ -1,5 +1,7 @@
-import { useId, useState, useSyncExternalStore } from "react";
-import { exportData, importData } from "../lib/storage.js";
+import { useId, useMemo, useState, useSyncExternalStore } from "react";
+import { buildExport, importData, readBadCopies } from "../lib/storage.js";
+import { finishRestore } from "../lib/notice.js";
+import { saveJson } from "../lib/download.js";
 import { toLocalDate } from "../lib/dates.js";
 
 // `beforeinstallprompt` fires once, early. Capture it at module load so the
@@ -41,25 +43,38 @@ function readText(file) {
   });
 }
 
-function saveJson(filename, data) {
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
 export default function Settings({ scores, quick, focus, checkins, navigate }) {
   const [importError, setImportError] = useState("");
   const installPrompt = useInstallPrompt();
   const noteId = useId();
+  const badCopies = useMemo(() => readBadCopies(), []);
+  const hasBad = Object.keys(badCopies).length > 0;
+
+  // Built from what is in memory, so it works when the browser blocks storage.
+  const snapshot = () =>
+    buildExport({
+      scores: scores.scores,
+      quick: quick.quick,
+      focus: focus.focus,
+      checkins: checkins.checkins,
+    });
+  const hasData =
+    Object.keys(scores.scores || {}).length > 0 ||
+    Object.keys(quick.quick || {}).length > 0 ||
+    Boolean(focus.focus) ||
+    (checkins.checkins || []).length > 0;
 
   const onExport = () => {
-    saveJson(`life-improver-${toLocalDate()}.json`, exportData());
+    saveJson(`life-improver-${toLocalDate()}.json`, snapshot());
+  };
+
+  const onExportBad = () => {
+    saveJson(`life-improver-damaged-${toLocalDate()}.json`, {
+      app: "life-improver",
+      kind: "damaged-copy",
+      savedAt: new Date().toISOString(),
+      copies: badCopies,
+    });
   };
 
   const onImport = async (e) => {
@@ -69,9 +84,10 @@ export default function Settings({ scores, quick, focus, checkins, navigate }) {
     setImportError("");
     try {
       const text = await readText(file);
-      if (!window.confirm("Replace all data on this device with the imported file?")) return;
-      importData(text);
-      window.location.reload();
+      // Nothing here to lose, so nothing to confirm.
+      if (hasData && !window.confirm("Replace all data on this device with the imported file?")) return;
+      const restored = importData(text);
+      finishRestore(restored.checkins.length);
     } catch (err) {
       setImportError(err && err.message ? err.message : "This file could not be imported.");
     } finally {
@@ -120,6 +136,16 @@ export default function Settings({ scores, quick, focus, checkins, navigate }) {
         <div className="set-row">
           <button type="button" className="btn btn-primary set-btn" onClick={onExport}>Download a copy</button>
         </div>
+        {hasBad && (
+          <>
+            <p className="set-p" style={{ marginTop: 14 }}>
+              Some saved data could not be read, and a copy of it was kept.
+            </p>
+            <div className="set-row">
+              <button type="button" className="btn set-btn" onClick={onExportBad}>Download the damaged copy</button>
+            </div>
+          </>
+        )}
         <div className="set-row" style={{ marginTop: 12 }}>
           <label className="btn set-btn set-restore">
             Restore from a copy

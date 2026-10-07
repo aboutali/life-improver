@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { FRAMEWORK } from "../data/framework.js";
 import { useToday } from "../hooks/useToday.js";
-import { suggestFocus, suggestPractice } from "../lib/recommend.js";
+import { makeFocus, suggestFocus, suggestPractice } from "../lib/recommend.js";
+import { clearDraft, importData, readDraft, writeDraft } from "../lib/storage.js";
+import { finishRestore } from "../lib/notice.js";
 import FocusPicker from "./FocusPicker.jsx";
 
 // Enough to find a place to begin; the rest can wait for the full assessment.
@@ -14,14 +16,30 @@ const firstSentence = (text) => {
 
 const SLIDER_KEYS = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End", "PageUp", "PageDown"];
 
-export default function Onboarding({ scores, quick, focus, checkins, navigate }) {
-  const [step, setStep] = useState(1);
-  const [draft, setDraft] = useState({}); // { domainId: 1..10 }, only rated domains
-  const [pick, setPick] = useState(null); // { domainId, subIndex } chosen by hand
+const STEP_PATHS = ["/welcome", "/welcome/rate", "/welcome/focus"];
+
+function readText(file) {
+  if (typeof file.text === "function") return file.text();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsText(file);
+  });
+}
+
+export default function Onboarding({ scores, quick, focus, checkins, navigate, path = "/welcome" }) {
+  // The step comes from the route, so the browser's Back button moves between steps.
+  const step = Math.max(1, STEP_PATHS.indexOf(path) + 1);
+  // Ratings wait in sessionStorage until the seed is planted, so a reload keeps them.
+  const [initial] = useState(readDraft);
+  const [draft, setDraft] = useState(initial.quick); // { domainId: 1..10 }, only rated domains
+  const [pick, setPick] = useState(initial.pick); // { domainId, subIndex } chosen by hand
   const [picking, setPicking] = useState(false);
+  const [restoreError, setRestoreError] = useState("");
+  const planted = useRef(false);
   const headingRef = useRef(null);
   const mounted = useRef(false);
-  const sectionRef = useRef(null);
   const chooseRef = useRef(null);
   const pickerWasOpen = useRef(false);
   const today = useToday();
@@ -32,23 +50,28 @@ export default function Onboarding({ scores, quick, focus, checkins, navigate })
     mounted.current = true;
   }, [step]);
 
-  // The picker opens below the buttons: move focus to its heading, and hand
-  // focus back to "Choose another" when it closes.
+  // The picker moves focus to its own heading when it opens; when it closes,
+  // hand focus back to "Choose another".
   useEffect(() => {
     if (picking) {
-      const heading = sectionRef.current?.querySelector("#fp-title");
-      if (heading) {
-        heading.tabIndex = -1;
-        heading.focus();
-        pickerWasOpen.current = true;
-      }
+      pickerWasOpen.current = true;
     } else if (pickerWasOpen.current) {
       pickerWasOpen.current = false;
       chooseRef.current?.focus();
     }
   }, [picking]);
 
+  useEffect(() => {
+    if (!planted.current) writeDraft({ quick: draft, pick });
+  }, [draft, pick]);
+
   const rated = Object.keys(draft).length;
+  // A direct visit to the last step without enough ratings goes back to rating.
+  const needsRatings = step === 3 && rated < MIN_RATED;
+  useEffect(() => {
+    if (needsRatings) navigate("/welcome/rate", { replace: true, quiet: true });
+  }, [needsRatings, navigate]);
+
   // A range input shows 5 before it is touched and fires no change event for
   // it, so a pointer or key interaction also records the value it rests on.
   const record = (id, raw) => {
@@ -63,9 +86,9 @@ export default function Onboarding({ scores, quick, focus, checkins, navigate })
     setDraft((p) => ({ ...p, [id]: Number(raw) }));
     setPick(null);
   };
-  const go = (n) => { setPicking(false); setStep(n); };
+  const go = (n) => { setPicking(false); navigate(STEP_PATHS[n - 1]); };
 
-  const suggested = step === 3
+  const suggested = step === 3 && !needsRatings
     ? suggestFocus({ scores: scores.scores, quick: draft })
     : null;
   const chosen = pick || suggested;
@@ -83,15 +106,35 @@ export default function Onboarding({ scores, quick, focus, checkins, navigate })
     : 0;
 
   const plant = () => {
+    planted.current = true;
+    clearDraft();
     Object.entries(draft).forEach(([id, v]) => quick.setQuick(Number(id), v));
-    focus.setFocus({
-      domainId: chosen.domainId,
-      subIndex: chosen.subIndex,
-      practiceIndex,
-      startedAt: today,
-      skipped: [],
-    });
+    focus.setFocus(
+      makeFocus({
+        domainId: chosen.domainId,
+        subIndex: chosen.subIndex,
+        practiceIndex,
+        origin: pick ? "picked" : "suggested",
+        today,
+        checkins: checkins.checkins,
+      })
+    );
     navigate("/");
+  };
+
+  const onRestore = async (e) => {
+    const input = e.target;
+    const file = input.files && input.files[0];
+    if (!file) return;
+    setRestoreError("");
+    try {
+      const { checkins: restored } = importData(await readText(file));
+      finishRestore(restored.length);
+    } catch (err) {
+      setRestoreError(err && err.message ? err.message : "This file could not be restored.");
+    } finally {
+      input.value = "";
+    }
   };
 
   return (
@@ -111,6 +154,13 @@ export default function Onboarding({ scores, quick, focus, checkins, navigate })
               Begin
             </button>
           </div>
+          <p className="wl-restore">
+            <label className="wl-link wl-file">
+              I have a saved copy
+              <input className="sr-only" type="file" accept=".json,application/json" onChange={onRestore} />
+            </label>
+          </p>
+          {restoreError && <p className="wl-err" role="alert">{restoreError}</p>}
         </section>
       )}
 
@@ -168,13 +218,13 @@ export default function Onboarding({ scores, quick, focus, checkins, navigate })
         </section>
       )}
 
-      {step === 3 && sub && (
-        <section className="cd fc" ref={sectionRef}>
+      {step === 3 && sub && !needsRatings && (
+        <section className="cd fc">
           <h2 className="sf wl-title" tabIndex={-1} ref={headingRef}>A place to begin</h2>
           <p className="fc-eyebrow">{domain.domain}</p>
           <h3 className="sf fc-title">{sub.name}</h3>
           <p className="sf fc-practice">{sub.ideas[practiceIndex]}</p>
-          <p className="today-muted">{pick ? "A place you chose to begin." : suggested.reason}</p>
+          <p className="today-muted">{pick ? "You chose this place to begin." : suggested.reason}</p>
           <div className="wl-actions">
             <button type="button" className="btn btn-tap" onClick={() => go(2)}>Back</button>
             <button

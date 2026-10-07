@@ -1,5 +1,9 @@
-import { describe, it, expect } from "vitest";
-import { KEYS, runMigrations, exportData, importData, isValidCheckin } from "../storage.js";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import {
+  KEYS, runMigrations, exportData, importData, isValidCheckin,
+  buildExport, getStorageStatus, resetStorageStatus, detectStorage, markDamaged, markWriteFailed,
+  subscribeStorageStatus, readBadCopies, DRAFT_KEY, readDraft, writeDraft, clearDraft,
+} from "../storage.js";
 
 const focus = { domainId: 1, subIndex: 0, practiceIndex: 3, startedAt: "2026-10-07", skipped: [1, 2] };
 const checkin = {
@@ -243,3 +247,82 @@ describe("damaged check-ins", () => {
     expect(() => importData(JSON.parse(JSON.stringify(out)))).not.toThrow();
   });
 });
+
+describe("storage status registry", () => {
+  beforeEach(() => resetStorageStatus());
+
+  it("is available and undamaged by default", () => {
+    expect(getStorageStatus()).toEqual({ available: true, damaged: [] });
+  });
+
+  it("returns the same snapshot until something changes", () => {
+    const a = getStorageStatus();
+    expect(getStorageStatus()).toBe(a);
+    markDamaged(KEYS.focus, "x");
+    expect(getStorageStatus()).not.toBe(a);
+  });
+
+  it("detects blocked storage with a test write, once", () => {
+    const blocked = { setItem: () => { throw new Error("blocked"); }, removeItem: () => {} };
+    expect(detectStorage(blocked)).toBe(false);
+    expect(getStorageStatus().available).toBe(false);
+    // A second call does not probe again.
+    expect(detectStorage({ setItem: () => {}, removeItem: () => {} })).toBe(false);
+  });
+
+  it("marks storage unavailable after a failed write, and tells listeners", () => {
+    getStorageStatus();
+    const fn = vi.fn();
+    const off = subscribeStorageStatus(fn);
+    markWriteFailed();
+    expect(getStorageStatus().available).toBe(false);
+    expect(fn).toHaveBeenCalled();
+    off();
+  });
+
+  it("lists damaged keys once and keeps the raw copy in memory", () => {
+    markDamaged(KEYS.checkins, "{bad");
+    markDamaged(KEYS.checkins, "{worse");
+    expect(getStorageStatus().damaged).toEqual([KEYS.checkins]);
+    expect(readBadCopies({ getItem: () => null })).toEqual({ [`${KEYS.checkins}:bad`]: "{bad" });
+  });
+
+  it("reads stored :bad copies first", () => {
+    localStorage.setItem(`${KEYS.scores}:bad`, "stored");
+    expect(readBadCopies()).toEqual({ [`${KEYS.scores}:bad`]: "stored" });
+  });
+});
+
+describe("buildExport", () => {
+  it("builds the export from in-memory values, sanitized", () => {
+    const out = buildExport({ scores: { "1-0": 4, nope: 3 }, checkins: [checkin, { bad: true }] });
+    expect(out.app).toBe("life-improver");
+    expect(out.data.scores).toEqual({ "1-0": 4 });
+    expect(out.data.checkins).toEqual([checkin]);
+    expect(out.data.focus).toBeNull();
+    expect(importData(out, Map2())).toBeTruthy();
+  });
+});
+
+describe("welcome draft", () => {
+  beforeEach(() => sessionStorage.clear());
+
+  it("round-trips through sessionStorage and drops invalid entries", () => {
+    expect(readDraft()).toEqual({ quick: {}, pick: null });
+    writeDraft({ quick: { 1: 5, 2: 11, x: 3 }, pick: { domainId: 2, subIndex: 1 } });
+    expect(readDraft()).toEqual({ quick: { 1: 5 }, pick: { domainId: 2, subIndex: 1 } });
+    clearDraft();
+    expect(sessionStorage.getItem(DRAFT_KEY)).toBeNull();
+  });
+
+  it("survives unreadable text", () => {
+    sessionStorage.setItem(DRAFT_KEY, "{nope");
+    expect(readDraft()).toEqual({ quick: {}, pick: null });
+  });
+});
+
+// A minimal in-memory Storage, to import into without touching localStorage.
+function Map2() {
+  const m = new Map();
+  return { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), removeItem: (k) => m.delete(k) };
+}

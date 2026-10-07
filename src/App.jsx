@@ -10,18 +10,22 @@ import Onboarding from "./components/Onboarding.jsx";
 import CheckIn from "./components/CheckIn.jsx";
 import Journey from "./components/Journey.jsx";
 import Settings from "./components/Settings.jsx";
+import Notices from "./components/Notices.jsx";
 import ErrorBoundary from "./components/ErrorBoundary.jsx";
 import { useScores } from "./hooks/useScores.js";
 import { useQuickScores } from "./hooks/useQuickScores.js";
 import { useFocus } from "./hooks/useFocus.js";
 import { useCheckins } from "./hooks/useCheckins.js";
 import { useRoute, href } from "./lib/router.js";
+import { buildExport } from "./lib/storage.js";
+import { saveJson } from "./lib/download.js";
+import { toLocalDate } from "./lib/dates.js";
 
 // Reading and form screens sit in a narrower column.
-const NARROW = new Set(["/", "/welcome", "/checkin", "/journey", "/settings"]);
+const NARROW = new Set(["/", "/welcome", "/welcome/rate", "/welcome/focus", "/checkin", "/journey", "/settings"]);
 
 export default function App() {
-  const { path, focusKey, navigate: go } = useRoute();
+  const { path, query, focusKey, navigate: go } = useRoute();
   const mainRef = useRef(null);
 
   // Leaving Settings for the welcome screen means a reset: replace the entry
@@ -59,22 +63,36 @@ export default function App() {
 
   const shared = { scores, quick, focus, checkins, navigate };
 
+  // The in-memory state, so a copy can be saved even when storage is blocked.
+  const downloadCopy = () =>
+    saveJson(
+      `life-improver-${toLocalDate()}.json`,
+      buildExport({
+        scores: scores.scores,
+        quick: quick.quick,
+        focus: focus.focus,
+        checkins: checkins.checkins,
+      })
+    );
+
   let screen;
   switch (path) {
     case "/welcome":
-      screen = <Onboarding {...shared} />;
+    case "/welcome/rate":
+    case "/welcome/focus":
+      screen = <Onboarding {...shared} path={path} />;
       break;
     case "/checkin":
-      screen = <CheckIn {...shared} />;
+      screen = <CheckIn {...shared} path={path} />;
       break;
     case "/journey":
-      screen = <Journey {...shared} />;
+      screen = <Journey {...shared} path={path} />;
       break;
     case "/assess":
-      screen = <SelfAssessment scores={scores} />;
+      screen = <SelfAssessment scores={scores} focus={focus} checkins={checkins} navigate={navigate} />;
       break;
     case "/practices":
-      screen = <Ideas />;
+      screen = <Ideas focus={focus} checkins={checkins} navigate={navigate} query={query} />;
       break;
     case "/framework":
       screen = <Overview />;
@@ -83,7 +101,7 @@ export default function App() {
       screen = <Sources />;
       break;
     case "/settings":
-      screen = <Settings {...shared} />;
+      screen = <Settings {...shared} path={path} />;
       break;
     default:
       screen = <Today {...shared} />;
@@ -97,8 +115,9 @@ export default function App() {
       <Header path={path} />
       <TabBar path={path} />
 
-      <main ref={mainRef} tabIndex={-1} style={{ maxWidth: 960, margin: "0 auto", padding: "24px 24px 64px", outline: "none" }}>
+      <main id="main" ref={mainRef} tabIndex={-1} style={{ maxWidth: 960, margin: "0 auto", padding: "24px 24px 64px", outline: "none" }}>
         <div className="app-screen" style={{ maxWidth }}>
+          <Notices path={path} isNewcomer={isNewcomer} onDownload={downloadCopy} />
           <ErrorBoundary resetKey={path}>{screen}</ErrorBoundary>
         </div>
       </main>

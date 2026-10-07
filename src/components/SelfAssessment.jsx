@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { FRAMEWORK, TOTAL_SUBS } from "../data/framework.js";
 import ShareButton from "./ShareButton.jsx";
+import { makeFocus } from "../lib/recommend.js";
+import { toLocalDate } from "../lib/dates.js";
 
 const tierColor = (sc) =>
   sc <= 2 ? "#C53030" : sc <= 4 ? "#DD6B20" : sc <= 6 ? "#D69E2E" : sc <= 8 ? "#38A169" : "#2B6CB0";
@@ -17,16 +19,14 @@ const TIERS = [
   { name: "Thriving",  color: "#2B6CB0", range: "9–10", desc: "A genuine source of energy and meaning." }
 ];
 
-export default function SelfAssessment({ scores }) {
+export default function SelfAssessment({ scores, focus, checkins, navigate }) {
   const [domIdx, setDomIdx] = useState(null);
   const dom = domIdx !== null ? FRAMEWORK[domIdx] : null;
 
   return (
     <div>
       <div style={{ marginBottom: 24 }}>
-        <p className="sf" style={{ fontSize: "var(--fs-lead)", color: "#1A1A1A", marginBottom: 8 }}>
-          How are you, really?
-        </p>
+        <h2 className="sf cat-title">How are you, really?</h2>
         <p style={{ fontSize: 14, color: "#666", maxWidth: 600 }}>
           Pick a domain. Drag each slider to where you honestly stand. The lowest scores aren't problems — they're where to begin.
         </p>
@@ -131,13 +131,13 @@ export default function SelfAssessment({ scores }) {
           </>
         )}
 
-        {scores.scoredCount > 0 && <Dashboard scores={scores} />}
+        {scores.scoredCount > 0 && <Dashboard scores={scores} focus={focus} checkins={checkins} navigate={navigate} />}
       </div>
     </div>
   );
 }
 
-function Dashboard({ scores }) {
+function Dashboard({ scores, focus, checkins, navigate }) {
   const allScores = Object.values(scores.scores);
   const avg = (allScores.reduce((a, b) => a + b, 0) / allScores.length).toFixed(1);
 
@@ -165,7 +165,7 @@ function Dashboard({ scores }) {
   const allSubs = [];
   FRAMEWORK.forEach((d) => d.subs.forEach((s, si) => {
     const sc = scores.get(d.id, si);
-    if (sc) allSubs.push({ domain: d.domain, sub: s.name, score: sc });
+    if (sc) allSubs.push({ domainId: d.id, subIndex: si, domain: d.domain, sub: s.name, score: sc });
   }));
   const top3 = [...allSubs].sort((a, b) => b.score - a.score).slice(0, 3);
   const bot3 = [...allSubs].sort((a, b) => a.score - b.score).slice(0, 3);
@@ -190,12 +190,31 @@ function Dashboard({ scores }) {
     }
   }
 
+  const current = focus?.focus || null;
+  const makeThisMyFocus = (s) => {
+    focus?.setFocus(
+      makeFocus({
+        domainId: s.domainId,
+        subIndex: s.subIndex,
+        origin: "picked",
+        today: toLocalDate(),
+        checkins: checkins?.checkins || [],
+      })
+    );
+    navigate?.("/");
+  };
+
   const onResetClick = () => {
     if (window.confirm("Clear every score? This cannot be undone.")) scores.reset();
   };
 
   return (
     <div style={{ marginTop: 32 }}>
+      <div className="cat-toweek">
+        <button type="button" className="btn btn-primary btn-tap" onClick={() => navigate?.("/")}>
+          See this week&apos;s focus
+        </button>
+      </div>
       <div style={{ background: "#0F172A", color: "#F1F5F9", padding: "32px 28px", marginBottom: 8, position: "relative", border: "1px solid #1E293B" }}>
         <div style={{ height: 3, background: "#3B82F6", position: "absolute", top: 0, left: 0, right: 0 }} />
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 24 }}>
@@ -270,15 +289,30 @@ function Dashboard({ scores }) {
         </div>
         <div className="cd">
           <p style={{ fontWeight: 600, fontSize: 11, color: "#C53030", marginBottom: 14, textTransform: "uppercase", letterSpacing: .5 }}>Focus here</p>
-          {bot3.map((s, i) => (
-            <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: i < bot3.length - 1 ? "1px solid #F0F0F0" : "none", gap: 8 }}>
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <p style={{ fontSize: 13, color: "#333", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.sub}</p>
-                <p style={{ fontSize: 11, color: "#999", marginTop: 2 }}>{s.domain}</p>
+          {bot3.map((s, i) => {
+            const isFocus = current && current.domainId === s.domainId && current.subIndex === s.subIndex;
+            return (
+              <div key={i} className="cat-focusrow" style={{ borderBottom: i < bot3.length - 1 ? "1px solid #F0F0F0" : "none" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <p style={{ fontSize: 13, color: "#333", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.sub}</p>
+                    <p style={{ fontSize: 11, color: "#999", marginTop: 2 }}>{s.domain}</p>
+                  </div>
+                  <span style={{ fontSize: 15, fontWeight: 600, color: tierColor(s.score), flexShrink: 0 }}>{s.score}</span>
+                </div>
+                {!isFocus && (
+                  <button
+                    type="button"
+                    className="btn btn-tap cat-pick"
+                    aria-label={`Make this my focus: ${s.sub}`}
+                    onClick={() => makeThisMyFocus(s)}
+                  >
+                    Make this my focus
+                  </button>
+                )}
               </div>
-              <span style={{ fontSize: 15, fontWeight: 600, color: tierColor(s.score), flexShrink: 0 }}>{s.score}</span>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 

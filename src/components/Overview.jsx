@@ -7,9 +7,7 @@ export default function Overview() {
   return (
     <div>
       <div style={{ marginBottom: 24 }}>
-        <p className="sf" style={{ fontSize: "var(--fs-lead)", color: "#1A1A1A", marginBottom: 8 }}>
-          The seven dimensions.
-        </p>
+        <h2 className="sf cat-title">The seven dimensions.</h2>
         <p style={{ fontSize: 14, color: "#666", maxWidth: 600 }}>
           Every meaningful life moves between these seven. Tap any to see what's inside.
         </p>
@@ -19,23 +17,29 @@ export default function Overview() {
           key={d.id}
           style={{ border: "1px solid #D5D5D5", background: "#fff", marginBottom: i < FRAMEWORK.length - 1 ? -1 : 0 }}
         >
-          <div className="oh" onClick={() => setExpanded(p => ({ ...p, [i]: !p[i] }))}>
+          <button
+            type="button"
+            className="oh cat-oh"
+            aria-expanded={!!expanded[i]}
+            aria-controls={`dim-${d.id}`}
+            onClick={() => setExpanded(p => ({ ...p, [i]: !p[i] }))}
+          >
             <div>
               <p style={{ fontWeight: 600, fontSize: 16, color: "#1A1A1A", marginBottom: 2 }}>{d.domain}</p>
               <p style={{ fontSize: 13, color: "#999" }}>
                 {d.subs.length} subcategories · {d.subs.reduce((a, s) => a + s.ideas.length, 0)} practices
               </p>
             </div>
-            <span style={{ fontSize: 18, color: "#999", transform: expanded[i] ? "rotate(180deg)" : "none", transition: "transform .2s", display: "inline-block" }}>
+            <span aria-hidden="true" style={{ fontSize: 18, color: "#999", transform: expanded[i] ? "rotate(180deg)" : "none", transition: "transform .2s", display: "inline-block" }}>
               ▾
             </span>
-          </div>
+          </button>
           {expanded[i] && (
-            <div className="ob">
+            <div className="ob" id={`dim-${d.id}`}>
               <p style={{ fontSize: 14, color: "#555", lineHeight: 1.7, marginTop: 12, marginBottom: 16 }}>{d.desc}</p>
               {d.subs.map((s, si) => (
                 <div key={si} className="os">
-                  <p style={{ fontWeight: 600, fontSize: 14, color: "#2B6CB0", marginBottom: 4 }}>{s.name}</p>
+                  <a className="cat-sublink" href={`#/practices?d=${d.id}&s=${si}`}>{s.name}</a>
                   <p style={{ fontSize: 13, color: "#666", lineHeight: 1.6 }}>{s.desc}</p>
                 </div>
               ))}
