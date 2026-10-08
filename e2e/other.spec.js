@@ -3,7 +3,7 @@
 // friction through the shared `friction` helper.
 import fs from "node:fs";
 import { test, expect } from "@playwright/test";
-import { freezeAt, seed, go, trackErrors, readStore, friction, RETURNING, KEYS } from "./helpers.js";
+import { freezeAt, seed, go, trackErrors, readStore, friction, RETURNING, KEYS, expectJourneyStat } from "./helpers.js";
 import { FRAMEWORK } from "../src/data/framework.js";
 
 // ---------- local helpers ----------
@@ -290,7 +290,7 @@ test("S23: download a copy, start over, restore on a new device", async ({ page,
     await notice.getByRole("button", { name: "Dismiss" }).click();
     await expect(notice).toHaveCount(0);
     await tab(page2, "Journey");
-    await expect(page2.getByText(/2 check-ins/)).toBeVisible();
+    await expectJourneyStat(page2, 2, "check-ins");
     await shot(page2, testInfo, "S23", "new-device-journey");
 
     // Restoring onto a device that already has data still asks first.
@@ -365,7 +365,7 @@ test("S24: storage throws (private mode)", async ({ page }, testInfo) => {
   await shot(page, testInfo, "S24", "checked-in");
 
   await tab(page, "Journey");
-  await expect(page.getByText(/1 check-in/)).toBeVisible();
+  await expectJourneyStat(page, 1, "check-in");
   await expect(banner).toBeVisible();
 
   // "Download a copy" in the banner exports what is in memory.
@@ -535,7 +535,7 @@ test("S25: keyboard-only user completes the loop", async ({ page }, testInfo) =>
   // Framework: the accordion header is a real button that opens with Enter,
   // and the sub names inside are links into Practices.
   await go(page, "/framework");
-  const header = page.locator(".oh").first();
+  const header = page.getByRole("main").getByRole("button", { name: /^Body & Vitality/ });
   expect(await header.evaluate((el) => el.tagName)).toBe("BUTTON");
   await header.focus();
   await expect(header).toHaveAttribute("aria-expanded", "false");
@@ -630,7 +630,7 @@ test("S26: every route has named controls and a sane heading order", async ({ pa
     if (r === "/practices") {
       await page.getByRole("button", { name: "Body & Vitality" }).click();
     }
-    if (r === "/framework") await page.locator(".oh").first().click();
+    if (r === "/framework") await page.getByRole("main").getByRole("button", { name: /^Body & Vitality/ }).click();
     report[r] = await audit(page);
     await shot(page, testInfo, "S26", r === "/" ? "today" : r.slice(1));
   }
@@ -682,33 +682,38 @@ test("S27: reach Framework, Sources and Settings", async ({ page }, testInfo) =>
   await expect(page.getByRole("heading", { name: "Settings & privacy" })).toBeVisible();
   await shot(page, testInfo, "S27", "settings");
 
-  // Framework and Sources: tabs on desktop, footer links on a phone.
+  // Framework and Sources: tabs on desktop; rows in Settings on a phone (the
+  // footer is hidden there, and Practices links to both as well).
   const targets = { Framework: "/framework", Sources: "/sources" };
   const report = {};
   for (const [label, path] of Object.entries(targets)) {
-    await go(page, "/");
-    await expect(page.getByRole("heading", { name: "This week, tend one thing." })).toBeVisible();
+    await go(page, isMobile ? "/settings" : "/");
+    await expect(page.getByRole("heading", { name: isMobile ? "Settings & privacy" : "This week, tend one thing." })).toBeVisible();
     await page.evaluate(() => window.scrollTo(0, 0));
     const inNav = await mainNav.getByRole("link", { name: label, exact: true }).count();
     const link = isMobile
-      ? page.getByRole("navigation", { name: "More" }).getByRole("link", { name: label })
+      ? page.getByRole("main").getByRole("link", { name: label, exact: true })
       : mainNav.getByRole("link", { name: label, exact: true });
-    const box = await link.boundingBox();
-    const scrollNeeded = Math.round(Math.max(0, box.y + box.height - viewport.height));
-    report[label] = { inNav, belowFold: scrollNeeded > 0, scrollNeeded };
+    await expect(link).toBeVisible();
+    report[label] = { inNav };
     await link.click();
     await expect(page).toHaveURL(new RegExp("#" + path + "$"));
     await shot(page, testInfo, "S27", path.slice(1));
+    if (isMobile) {
+      // Back from a pushed screen goes to its parent, Practices.
+      await page.getByRole("banner").getByRole("link", { name: "Back to Practices" }).click();
+      await expect(page).toHaveURL(/#\/practices$/);
+    }
   }
 
   if (isMobile) {
     expect(bottomTabs.map((t) => t.trim())).toEqual(["Today", "Journey", "Assess", "Practices"]);
     for (const label of Object.keys(targets)) expect(report[label].inNav).toBe(0);
-    // Framework and Sources are still only in the footer, below the first screen.
-    expect(report.Framework.belowFold).toBe(true);
+    // The footer is gone on a phone.
+    await expect(page.getByRole("navigation", { name: "More" })).toBeHidden();
     friction(
       testInfo,
-      `Settings is now one tap from every screen (gear in the header, icon only on a phone). Framework and Sources are still footer-only on a phone: the bottom bar has ${bottomTabs.join(", ")}, and the links sit ${report.Framework.scrollNeeded}px below the first screen of Today as small grey text. Nothing hints they exist.`
+      `Settings is one tap from every tab screen (gear in the app bar). Framework and Sources are rows in Settings and links on Practices; the bottom bar has ${bottomTabs.join(", ")}.`
     );
   } else {
     expect(report.Framework.inNav).toBe(1);
@@ -726,12 +731,12 @@ test("S28: Framework and Sources link to related practices", async ({ page }, te
   await go(page, "/framework");
 
   const main = page.getByRole("main");
-  const header = page.locator(".oh").first();
+  const header = page.getByRole("main").getByRole("button", { name: /^Body & Vitality/ });
   await expect(header).toHaveAttribute("aria-expanded", "false");
-  await expect(main.locator(".ob a")).toHaveCount(0);
+  await expect(main.getByRole("link")).toHaveCount(0);
   await header.click();
   await expect(header).toHaveAttribute("aria-expanded", "true");
-  await expect(main.locator(".ob a")).toHaveCount(domainOf(1).subs.length);
+  await expect(main.getByRole("link")).toHaveCount(domainOf(1).subs.length);
   await shot(page, testInfo, "S28", "framework-expanded");
 
   // Every sub name is a link to that sub's practices.
@@ -751,7 +756,7 @@ test("S28: Framework and Sources link to related practices", async ({ page }, te
   // Back returns to Framework.
   await page.goBack();
   await expect(page).toHaveURL(/#\/framework$/);
-  const stillOpen = (await page.locator(".oh").first().getAttribute("aria-expanded")) === "true";
+  const stillOpen = (await header.getAttribute("aria-expanded")) === "true";
 
   // Sources: a link to Practices at the top; the prose mapping stays prose.
   await go(page, "/sources");
@@ -799,7 +804,7 @@ test("S29: damaged storage shows a recovery path", async ({ page }, testInfo) =>
   await expect(page.getByRole("heading", { name: "Journey" })).toBeVisible();
 
   // Only the valid entry survives, and the person is told.
-  await expect(page.getByText(/1 check-in/)).toBeVisible();
+  await expectJourneyStat(page, 1, "check-in");
   const notice = page.getByRole("status").filter({ hasText: "Some saved data could not be read." });
   await expect(notice).toBeVisible();
   await expect(notice.getByRole("link", { name: "Open Settings" })).toBeVisible();
@@ -942,7 +947,11 @@ test("S51: skip link and the Settings gear on every screen", async ({ page }, te
   await seed(page, { quick: RETURNING.quick, focus: RETURNING.focus, checkins: RETURNING.checkins, scores: RETURNING.scores });
   const viewport = page.viewportSize();
 
+  const isMobile = testInfo.project.name === "mobile";
   const routes = ["/", "/journey", "/assess", "/practices", "/framework", "/sources", "/checkin", "/settings", "/welcome"];
+  // On a phone the app bar shows the gear on the four tab screens only; pushed
+  // screens show a Back button instead and /welcome shows neither.
+  const TAB_SCREENS = new Set(["/", "/journey", "/assess", "/practices"]);
   for (const r of routes) {
     await go(page, r);
     await page.reload();
@@ -950,13 +959,23 @@ test("S51: skip link and the Settings gear on every screen", async ({ page }, te
 
     // The gear: in the header, a 44px target, labelled.
     const gear = page.getByRole("banner").getByRole("link", { name: "Settings", exact: true });
-    await expect(gear).toBeVisible();
-    const box = await gear.boundingBox();
-    expect(box.y + box.height, `gear inside first screen on ${r}`).toBeLessThanOrEqual(viewport.height);
-    expect(box.width).toBeGreaterThanOrEqual(44);
-    expect(box.height).toBeGreaterThanOrEqual(44);
-    if (r === "/settings") await expect(gear).toHaveAttribute("aria-current", "page");
-    else await expect(gear).not.toHaveAttribute("aria-current", "page");
+    if (isMobile && !TAB_SCREENS.has(r)) {
+      await expect(gear).toBeHidden();
+      if (r !== "/welcome") {
+        const back = page.getByRole("banner").getByRole("link", { name: /^Back to / });
+        await expect(back).toBeVisible();
+        const bb = await back.boundingBox();
+        expect(bb.height, `back target on ${r}`).toBeGreaterThanOrEqual(44);
+      }
+    } else {
+      await expect(gear).toBeVisible();
+      const box = await gear.boundingBox();
+      expect(box.y + box.height, `gear inside first screen on ${r}`).toBeLessThanOrEqual(viewport.height);
+      expect(box.width).toBeGreaterThanOrEqual(44);
+      expect(box.height).toBeGreaterThanOrEqual(44);
+      if (r === "/settings") await expect(gear).toHaveAttribute("aria-current", "page");
+      else await expect(gear).not.toHaveAttribute("aria-current", "page");
+    }
 
     // The skip link: first stop on the page, on screen once focused.
     await page.keyboard.press("Tab");
@@ -977,8 +996,11 @@ test("S51: skip link and the Settings gear on every screen", async ({ page }, te
   await page.getByRole("banner").getByRole("link", { name: "Settings", exact: true }).click();
   await expect(page).toHaveURL(/#\/settings$/);
   await expect(page.getByRole("heading", { name: "Settings & privacy" })).toBeFocused();
-  // The wordmark leads home.
-  await page.getByRole("banner").getByRole("link", { name: "Life Improver" }).click();
+  // The wordmark leads home on a wide screen; on a phone, Back leads to Today.
+  await page
+    .getByRole("banner")
+    .getByRole("link", { name: isMobile ? "Back to Today" : "Life Improver" })
+    .click();
   await expect(page).toHaveURL(/#\/$/);
   await shot(page, testInfo, "S51", "home");
   expectNoErrors();
@@ -1139,7 +1161,7 @@ test("S55: adopt a practice from another domain via the Practices deep link", as
   await shot(page, testInfo, "S55", "picker");
 
   await tab(page, "Journey");
-  await expect(page.getByText(/2 check-ins/)).toBeVisible();
+  await expectJourneyStat(page, 2, "check-ins");
   await expect(page.getByRole("main").getByText("Sleep & Recovery").first()).toBeVisible();
   expectNoErrors();
 });

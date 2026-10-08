@@ -25,14 +25,12 @@ export default function SelfAssessment({ scores, focus, checkins, navigate }) {
 
   return (
     <div>
-      <div style={{ marginBottom: 24 }}>
-        <h2 className="sf cat-title">How are you, really?</h2>
-        <p style={{ fontSize: 14, color: "#666", maxWidth: 600 }}>
-          Pick a domain. Drag each slider to where you honestly stand. The lowest scores aren't problems — they're where to begin.
-        </p>
-      </div>
+      <h2 className="t-large cat-title">How are you, really?</h2>
+      <p className="t-sub cat-intro">
+        Pick a domain. Drag each slider to where you honestly stand. The lowest scores aren't problems — they're where to begin.
+      </p>
 
-      <div className="sh" style={{ display: "flex", gap: 8, marginBottom: 24, paddingBottom: 4 }}>
+      <div className="sh cat-chips">
         {FRAMEWORK.map((d, i) => {
           const rc = d.subs.filter((_, si) => scores.get(d.id, si)).length;
           const tot = d.subs.length;
@@ -51,78 +49,61 @@ export default function SelfAssessment({ scores, focus, checkins, navigate }) {
 
       <div>
         {domIdx === null ? (
-          <div className="cd" style={{ textAlign: "center", padding: 48, color: "#999" }}>
-            <p className="sf" style={{ fontSize: 16, marginBottom: 8, color: "#666" }}>Pick a domain to start.</p>
-            <p style={{ fontSize: 13 }}>Choose any of the seven above. Rate it honestly. Repeat.</p>
+          <div className="cd cat-empty">
+            <p className="t-title">Pick a domain to start.</p>
+            <p className="t-sub">Choose any of the seven above. Rate it honestly. Repeat.</p>
           </div>
         ) : (
           <>
-            <div style={{ marginBottom: 16 }}>
-              <p style={{ fontWeight: 600, fontSize: 16, color: "#1A1A1A", marginBottom: 4 }}>{dom.domain}</p>
-              <p style={{ fontSize: 13, color: "#888" }}>
-                {dom.desc.split(".").slice(0, 2).join(".") + "."}
-              </p>
+            <div className="cat-subhead">
+              <p className="t-title">{dom.domain}</p>
+              <p className="t-sub">{dom.desc.split(".").slice(0, 2).join(".") + "."}</p>
             </div>
 
-            <div className="cd" style={{ padding: 16, background: "#FAFAFA", marginBottom: 16 }}>
-              <p style={{ fontWeight: 600, fontSize: 12, color: "#888", marginBottom: 10, textTransform: "uppercase", letterSpacing: .5 }}>
-                How to rate
-              </p>
-              <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "8px 14px", alignItems: "center", fontSize: 13 }}>
+            <div className="cd cat-legend">
+              <p className="t-eyebrow">How to rate</p>
+              <ul className="cat-tiers">
                 {TIERS.map((t) => (
-                  <span key={t.name} style={{ display: "contents" }}>
-                    <span style={{ display: "inline-block", width: 14, height: 14, background: t.color, borderRadius: 2 }} />
-                    <span style={{ color: "#444" }}>
-                      <strong style={{ color: t.color }}>{t.name} · {t.range}</strong> — {t.desc}
+                  <li key={t.name}>
+                    <span className="cat-dot" style={{ background: t.color }} />
+                    <span className="t-foot">
+                      <strong className="cat-tier-name">{t.name} · {t.range}</strong> — {t.desc}
                     </span>
-                  </span>
+                  </li>
                 ))}
-              </div>
+              </ul>
             </div>
 
             {dom.subs.map((s, si) => {
               const sc = scores.get(dom.id, si);
-              const color = sc ? tierColor(sc) : "#999";
+              const color = sc ? tierColor(sc) : null;
               const label = sc ? tierLabel(sc) : null;
               return (
-                <div key={si} className="cd" style={{ padding: 20 }}>
-                  <div style={{ marginBottom: 14 }}>
-                    <p style={{ fontWeight: 600, fontSize: 14, color: "#1A1A1A", marginBottom: 2 }}>{s.name}</p>
-                    <p style={{ fontSize: 12, color: "#888", lineHeight: 1.5 }}>{s.desc}</p>
-                  </div>
-                  <div style={{ marginTop: 8 }}>
-                    <input
-                      type="range"
-                      min="1"
-                      max="10"
-                      value={sc || 5}
-                      aria-label={`${s.name} score`}
-                      aria-valuetext={sc ? `${sc} — ${label}` : "unscored"}
-                      onChange={(e) => scores.set(dom.id, si, Number(e.target.value))}
-                      style={{ width: "100%", accentColor: sc ? color : "#CCC", height: 6, marginBottom: 10, cursor: "pointer", display: "block" }}
-                    />
-                    <div style={{ position: "relative", height: 16, marginTop: -4, padding: "0 12px" }}>
-                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
-                        <span
-                          key={n}
-                          style={{
-                            position: "absolute",
-                            left: `calc(12px + ${(n - 1) / 9} * (100% - 24px))`,
-                            transform: "translateX(-50%)",
-                            fontSize: 11,
-                            color: sc === n ? color : "#AAA",
-                            fontWeight: sc === n ? 600 : 400
-                          }}
-                        >
-                          {n}
+                <div key={si} className="cd cat-rate">
+                  <p className="t-head">{s.name}</p>
+                  <p className="t-foot">{s.desc}</p>
+                  <input
+                    type="range"
+                    min="1"
+                    max="10"
+                    value={sc || 5}
+                    className={`slider${sc ? "" : " unset"}`}
+                    style={{ "--tier": color || "var(--text-3)", "--pct": `${(((sc || 5) - 1) / 9) * 100}%` }}
+                    aria-label={`${s.name} score`}
+                    aria-valuetext={sc ? `${sc} — ${label}` : "unscored"}
+                    onChange={(e) => scores.set(dom.id, si, Number(e.target.value))}
+                  />
+                  <div className="cat-readout">
+                    {sc ? (
+                      <>
+                        <span className="cat-pill" style={{ background: color + "22" }}>
+                          <span className="cat-dot" style={{ background: color }} />
+                          {label}
                         </span>
-                      ))}
-                    </div>
-                    {sc && (
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 14, padding: "10px 14px", background: color + "15", borderLeft: `3px solid ${color}` }}>
-                        <span style={{ fontSize: 13, fontWeight: 600, color }}>{label}</span>
-                        <span style={{ fontSize: "var(--fs-title)", fontWeight: 300, color }}>{sc}</span>
-                      </div>
+                        <span className="cat-score sf">{sc}</span>
+                      </>
+                    ) : (
+                      <span className="cat-pill cat-pill-idle">Drag to rate</span>
                     )}
                   </div>
                 </div>
@@ -208,124 +189,107 @@ function Dashboard({ scores, focus, checkins, navigate }) {
     if (window.confirm("Clear every score? This cannot be undone.")) scores.reset();
   };
 
-  return (
-    <div style={{ marginTop: 32 }}>
-      <div className="cat-toweek">
-        <button type="button" className="btn btn-primary btn-tap" onClick={() => navigate?.("/")}>
-          See this week&apos;s focus
-        </button>
+  const subRow = (s, i, withAction) => {
+    const isFocus = current && current.domainId === s.domainId && current.subIndex === s.subIndex;
+    return (
+      <div key={i} className="row cat-drow">
+        <div className="cat-drow-text">
+          <p className="t-head cat-clip">{s.sub}</p>
+          <p className="t-foot cat-clip">{s.domain}</p>
+        </div>
+        <span className="cat-dscore" style={{ color: tierColor(s.score) }}>{s.score}</span>
+        {withAction && !isFocus && (
+          <button
+            type="button"
+            className="btn cat-pick"
+            aria-label={`Make this my focus: ${s.sub}`}
+            onClick={() => makeThisMyFocus(s)}
+          >
+            Make this my focus
+          </button>
+        )}
       </div>
-      <div style={{ background: "#0F172A", color: "#F1F5F9", padding: "32px 28px", marginBottom: 8, position: "relative", border: "1px solid #1E293B" }}>
-        <div style={{ height: 3, background: "#3B82F6", position: "absolute", top: 0, left: 0, right: 0 }} />
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 24 }}>
-          <p style={{ fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: "#3B82F6", fontWeight: 700 }}>Life Framework</p>
-          <p style={{ fontSize: 11, color: "#64748B", letterSpacing: .5 }}>{date}</p>
+    );
+  };
+
+  return (
+    <div className="cat-dash">
+      <button type="button" className="btn btn-primary btn-block cat-toweek" onClick={() => navigate?.("/")}>
+        See this week&apos;s focus
+      </button>
+
+      <div className="cat-hero">
+        <div className="cat-hero-top">
+          <p className="cat-hero-eyebrow">Life Framework</p>
+          <p className="cat-hero-date">{date}</p>
         </div>
-        <div style={{ textAlign: "center", marginBottom: 32 }}>
-          <p className="sf" style={{ fontSize: "var(--fs-display)", fontWeight: 200, color: brightTierColor(parseFloat(avg)), lineHeight: .95, letterSpacing: -2 }}>{avg}</p>
-          <p style={{ fontSize: 10, letterSpacing: 2, color: "#64748B", marginTop: 10, textTransform: "uppercase", fontWeight: 600 }}>
-            Overall · {scores.scoredCount}/{TOTAL_SUBS}
-          </p>
+        <div className="cat-hero-score">
+          <p className="sf cat-hero-num" style={{ color: brightTierColor(parseFloat(avg)) }}>{avg}</p>
+          <p className="cat-hero-cap">Overall · {scores.scoredCount}/{TOTAL_SUBS}</p>
         </div>
-        <div style={{ marginBottom: 24 }}>
+        <div className="cat-bars">
           {domains.map((d, i) => (
-            <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 11 }}>
-              <span style={{ fontSize: 12, color: "#CBD5E1", flex: "0 0 130px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.name}</span>
-              <div style={{ flex: 1, height: 6, background: "#1E293B", minWidth: 0 }}>
-                <div style={{ height: "100%", width: d.avg ? `${d.avg * 10}%` : 0, background: d.avg ? brightTierColor(d.avg) : "#334155", transition: "width .3s" }} />
+            <div key={i} className="cat-bar">
+              <span className="cat-bar-name">{d.name}</span>
+              <div className="cat-bar-track">
+                <div style={{ height: "100%", borderRadius: 3, width: d.avg ? `${d.avg * 10}%` : 0, background: d.avg ? brightTierColor(d.avg) : "#334155", transition: "width .3s" }} />
               </div>
-              <span style={{ fontSize: 13, fontWeight: 600, color: "#fff", width: 32, textAlign: "right", fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>
-                {d.avg ? d.avg.toFixed(1) : "—"}
-              </span>
+              <span className="cat-bar-val">{d.avg ? d.avg.toFixed(1) : "—"}</span>
             </div>
           ))}
         </div>
         {strongest && weakest && (
-          <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 18, borderTop: "1px solid #1E293B", gap: 16 }}>
-            <div style={{ minWidth: 0, flex: 1 }}>
-              <p style={{ color: "#64748B", marginBottom: 4, textTransform: "uppercase", letterSpacing: 1.2, fontSize: 10, fontWeight: 700 }}>Strongest</p>
-              <p style={{ color: "#22C55E", fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{strongest.name}</p>
+          <div className="cat-hero-foot">
+            <div className="cat-hero-col">
+              <p className="cat-hero-eyebrow cat-muted">Strongest</p>
+              <p className="cat-hero-name" style={{ color: "#22C55E" }}>{strongest.name}</p>
             </div>
-            <div style={{ textAlign: "right", minWidth: 0, flex: 1 }}>
-              <p style={{ color: "#64748B", marginBottom: 4, textTransform: "uppercase", letterSpacing: 1.2, fontSize: 10, fontWeight: 700 }}>Focus</p>
-              <p style={{ color: "#EF4444", fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{weakest.name}</p>
+            <div className="cat-hero-col cat-right">
+              <p className="cat-hero-eyebrow cat-muted">Focus</p>
+              <p className="cat-hero-name" style={{ color: "#F87171" }}>{weakest.name}</p>
             </div>
           </div>
         )}
       </div>
+
       <ShareButton domains={domains} overall={avg} />
 
       <div className="cd">
-        <p style={{ fontWeight: 600, fontSize: 11, color: "#888", marginBottom: 14, textTransform: "uppercase", letterSpacing: .5 }}>Distribution</p>
-        <div style={{ display: "flex", height: 32, marginBottom: 12 }}>
+        <p className="t-eyebrow cat-card-title">Distribution</p>
+        <div className="cat-dist">
           {tiers.map((t) => t.count > 0 && (
-            <div key={t.name} style={{ background: t.color, flex: t.count, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 13, fontWeight: 600, minWidth: 36 }}>
-              {t.count}
-            </div>
+            <div key={t.name} style={{ background: t.color, flex: t.count }}>{t.count}</div>
           ))}
         </div>
-        <div style={{ display: "flex", gap: 14, flexWrap: "wrap", fontSize: 11, color: "#666" }}>
+        <div className="cat-dist-legend">
           {tiers.map((t) => (
-            <span key={t.name} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-              <span style={{ width: 8, height: 8, background: t.color, display: "inline-block" }} />
+            <span key={t.name} className="t-foot">
+              <span className="cat-dot" style={{ background: t.color }} />
               {t.name} ({t.count})
             </span>
           ))}
         </div>
       </div>
 
-      <div className="split">
-        <div className="cd">
-          <p style={{ fontWeight: 600, fontSize: 11, color: "#38A169", marginBottom: 14, textTransform: "uppercase", letterSpacing: .5 }}>Thriving</p>
-          {top3.map((s, i) => (
-            <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: i < top3.length - 1 ? "1px solid #F0F0F0" : "none", gap: 8 }}>
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <p style={{ fontSize: 13, color: "#333", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.sub}</p>
-                <p style={{ fontSize: 11, color: "#999", marginTop: 2 }}>{s.domain}</p>
-              </div>
-              <span style={{ fontSize: 15, fontWeight: 600, color: tierColor(s.score), flexShrink: 0 }}>{s.score}</span>
-            </div>
-          ))}
-        </div>
-        <div className="cd">
-          <p style={{ fontWeight: 600, fontSize: 11, color: "#C53030", marginBottom: 14, textTransform: "uppercase", letterSpacing: .5 }}>Focus here</p>
-          {bot3.map((s, i) => {
-            const isFocus = current && current.domainId === s.domainId && current.subIndex === s.subIndex;
-            return (
-              <div key={i} className="cat-focusrow" style={{ borderBottom: i < bot3.length - 1 ? "1px solid #F0F0F0" : "none" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <p style={{ fontSize: 13, color: "#333", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.sub}</p>
-                    <p style={{ fontSize: 11, color: "#999", marginTop: 2 }}>{s.domain}</p>
-                  </div>
-                  <span style={{ fontSize: 15, fontWeight: 600, color: tierColor(s.score), flexShrink: 0 }}>{s.score}</span>
-                </div>
-                {!isFocus && (
-                  <button
-                    type="button"
-                    className="btn btn-tap cat-pick"
-                    aria-label={`Make this my focus: ${s.sub}`}
-                    onClick={() => makeThisMyFocus(s)}
-                  >
-                    Make this my focus
-                  </button>
-                )}
-              </div>
-            );
-          })}
-        </div>
+      <div className="cat-lists">
+        <section>
+          <h3 className="t-eyebrow list-title cat-focus-title">Focus here</h3>
+          <div className="list">{bot3.map((s, i) => subRow(s, i, true))}</div>
+        </section>
+        <section>
+          <h3 className="t-eyebrow list-title cat-thrive-title">Thriving</h3>
+          <div className="list">{top3.map((s, i) => subRow(s, i, false))}</div>
+        </section>
       </div>
 
       {insight && (
-        <div className="cd" style={{ background: "#EBF4FF", borderColor: "#BEE3F8" }}>
-          <p style={{ fontWeight: 600, fontSize: 11, color: "#2B6CB0", marginBottom: 10, textTransform: "uppercase", letterSpacing: .5 }}>The pattern</p>
-          <p style={{ fontSize: 14, color: "#1A4A7A", lineHeight: 1.7 }}>{insight}</p>
+        <div className="cd cat-insight">
+          <p className="t-eyebrow cat-card-title">The pattern</p>
+          <p className="t-body">{insight}</p>
         </div>
       )}
 
-      <div style={{ display: "flex", justifyContent: "center", marginTop: 16 }}>
-        <button className="btn btn-danger" onClick={onResetClick}>Reset all scores</button>
-      </div>
+      <button className="btn btn-danger btn-block cat-reset" onClick={onResetClick}>Reset all scores</button>
     </div>
   );
 }

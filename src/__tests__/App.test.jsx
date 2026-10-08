@@ -105,6 +105,19 @@ describe("App", () => {
     expect(foot).toHaveTextContent("FrameworkSourcesSettings & privacy");
   });
 
+  it("hides the bottom tabs and offers Back on Settings, and keeps both on a tab screen", async () => {
+    seed();
+    window.location.hash = "#/settings";
+    render(<App />);
+    expect(screen.queryByRole("navigation", { name: "Primary" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Back to Today" })).toHaveAttribute("href", "#/");
+    act(() => {
+      window.location.hash = "#/journey";
+    });
+    await waitFor(() => expect(screen.getByRole("navigation", { name: "Primary" })).toBeInTheDocument());
+    expect(screen.queryByRole("link", { name: /^Back to/ })).not.toBeInTheDocument();
+  });
+
   it("narrows the column for form screens and keeps 960 for the catalogue", async () => {
     seed();
     window.location.hash = "#/settings";

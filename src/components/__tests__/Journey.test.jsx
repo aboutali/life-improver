@@ -47,7 +47,9 @@ describe("Journey", () => {
       mk("2026-10-07", "2026-W41", 2, 0, 5, { practised: "no" }),
     ];
     render(<Journey {...props(list)} />);
-    expect(screen.getByText(/3 weeks active · 3 check-ins/)).toBeInTheDocument();
+    const [weeksTile, checkinsTile] = document.querySelectorAll(".jr-stat");
+    expect(weeksTile).toHaveTextContent("3weeks active");
+    expect(checkinsTile).toHaveTextContent("3check-ins");
 
     // Two subs: a line for the one with several weeks, a note for the lone point.
     expect(screen.getAllByRole("img")).toHaveLength(1);

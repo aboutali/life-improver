@@ -38,7 +38,7 @@ function rewardLine(change, practised) {
 function Segmented({ legend, name, options, value, onChange, className = "" }) {
   return (
     <fieldset className={`ci-q ${className}`} role="radiogroup">
-      <legend className="ci-legend">{legend}</legend>
+      <legend className="ci-legend t-head">{legend}</legend>
       <div className="ci-seg">
         {options.map((o) => (
           <label key={o.value} className="ci-opt">
@@ -66,34 +66,28 @@ function Reward({ result, sub, today, onKeep, onSwap }) {
   }, []);
   const change = changeSinceFirst(result.series);
   return (
-    <div className="cd ci-reward" style={{ textAlign: "center", padding: "32px 20px" }}>
-      <h2 className="sf" tabIndex={-1} ref={headingRef} style={{ fontSize: "var(--fs-title)", fontWeight: 400, color: "#1A1A1A", marginBottom: 6 }}>
+    <div className="ci-reward">
+      <h2 className="t-large" tabIndex={-1} ref={headingRef}>
         Check-in saved
       </h2>
-      <p className="sf" style={{ fontSize: "var(--fs-lead)", color: "#1A1A1A", maxWidth: 420, margin: "0 auto 20px" }}>
-        {rewardLine(change, result.practised)}
-      </p>
-      <p style={{ fontSize: 13, color: "#888" }}>{sub.name}</p>
-      <p className="sf" style={{ fontSize: "var(--fs-display)", lineHeight: 1.1, color: "#2B6CB0" }}>
-        {result.score}
-      </p>
-      <p style={{ fontSize: 12, color: "#888" }}>out of 10</p>
-      {change !== null && (
-        <p style={{ fontSize: 14, color: "#555", marginTop: 4 }}>
-          {formatChange(change)} since your first check-in
-        </p>
-      )}
-      <div style={{ display: "flex", justifyContent: "center", margin: "16px 0 12px" }}>
-        <Sparkline series={result.series} width={200} height={48} label={sub.name} />
+      <p className="t-sub ci-reward-line">{rewardLine(change, result.practised)}</p>
+      <div className="cd ci-reward-card">
+        <p className="t-eyebrow">{sub.name}</p>
+        <p className="sf ci-score">{result.score}</p>
+        <p className="t-foot">out of 10</p>
+        {change !== null && (
+          <p className="t-sub ci-change">{formatChange(change)} since your first check-in</p>
+        )}
+        <div className="ci-spark">
+          <Sparkline series={result.series} width={240} height={56} label={sub.name} />
+        </div>
       </div>
-      <p style={{ fontSize: 14, color: "#555", marginBottom: 20 }}>
-        Next check-in: {nextCheckinLabel(today)}
-      </p>
-      <div className="ci-actions" style={{ justifyContent: "center" }}>
-        <button type="button" className="btn btn-primary" onClick={onKeep}>
+      <p className="t-foot ci-next">Next check-in: {nextCheckinLabel(today)}</p>
+      <div className="ci-reward-actions">
+        <button type="button" className="btn btn-primary btn-block" onClick={onKeep}>
           Keep this practice
         </button>
-        <button type="button" className="btn" onClick={onSwap}>
+        <button type="button" className="btn btn-block" onClick={onSwap}>
           {result.practised === "no" ? "Try a smaller practice" : "Try a different practice"}
         </button>
       </div>
@@ -116,21 +110,19 @@ export default function CheckIn({ scores, quick, focus, checkins, navigate }) {
 
   if (!f || !sub) {
     return (
-      <div className="cd" style={{ textAlign: "center", padding: 40 }}>
-        <h2 className="sf" tabIndex={-1} style={{ fontSize: "var(--fs-title)", fontWeight: 400, color: "#1A1A1A", marginBottom: 8 }}>
-          Weekly check-in
-        </h2>
-        <p style={{ fontSize: 14, color: "#666", marginBottom: 20 }}>
+      <div className="ci-empty">
+        <h2 className="t-large" tabIndex={-1}>Weekly check-in</h2>
+        <p className="t-sub">
           {newcomer
             ? "There is nothing to check in on yet. A one-minute welcome sets your first focus."
             : "A check-in looks back at one practice. Choose a focus, and come back when the week has had its say."}
         </p>
         {newcomer ? (
-          <a href="#/welcome" className="btn btn-primary ci-link">
+          <a href="#/welcome" className="btn btn-primary">
             Begin with a one-minute welcome
           </a>
         ) : (
-          <a href="#/" className="btn btn-primary ci-link">
+          <a href="#/" className="btn btn-primary">
             Choose a focus first
           </a>
         )}
@@ -188,27 +180,25 @@ export default function CheckIn({ scores, quick, focus, checkins, navigate }) {
   }
 
   return (
-    <form onSubmit={save} aria-labelledby="ci-title">
-      <h2 id="ci-title" className="sf" tabIndex={-1} style={{ fontSize: "var(--fs-title)", fontWeight: 400, color: "#1A1A1A", marginBottom: 12 }}>
+    <form onSubmit={save} aria-labelledby="ci-title" className="ci">
+      <h2 id="ci-title" className="t-large" tabIndex={-1}>
         Weekly check-in
       </h2>
 
-      <div className="cd" style={{ borderLeft: "3px solid #2B6CB0" }}>
-        <p style={{ fontSize: 12, fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: 0.5 }}>
-          {domain.domain}
-        </p>
-        <p style={{ fontWeight: 600, fontSize: 16, color: "#1A1A1A", margin: "2px 0 6px" }}>{sub.name}</p>
-        <p className="sf" style={{ fontSize: 15, color: "#333" }}>{practice}</p>
+      <div className="cd ci-focus">
+        <p className="t-eyebrow">{domain.domain}</p>
+        <p className="t-head">{sub.name}</p>
+        <p className="sf t-sub">{practice}</p>
       </div>
 
       {already && (
-        <p style={{ fontSize: 13, color: "#888", marginBottom: 16 }}>
+        <p className="t-sub ci-aside">
           You already checked in this week. A new entry adds to it.{" "}
-          <a href={href("/")} className="ci-back">Back to Today</a>
+          <a href={href("/")} className="btn-text">Back to Today</a>
         </p>
       )}
       {!isCheckinOpen(f, today) && (
-        <p style={{ fontSize: 13, color: "#888", marginBottom: 16 }}>
+        <p className="t-sub ci-aside">
           You started recently. Check in early only if you like.
         </p>
       )}
@@ -221,15 +211,17 @@ export default function CheckIn({ scores, quick, focus, checkins, navigate }) {
           value={practised}
           onChange={setPractised}
         />
+      </div>
 
+      <div className="cd">
         <fieldset
           className="ci-q ci-scale"
           role="radiogroup"
           aria-describedby={lastScore ? "ci-last" : undefined}
         >
-          <legend className="ci-legend">How is {sub.name} now?</legend>
+          <legend className="ci-legend t-head">How is {sub.name} now?</legend>
           {lastScore && (
-            <p id="ci-last" className="ci-last">
+            <p id="ci-last" className="t-foot ci-last">
               Last time: {lastScore}
             </p>
           )}
@@ -247,15 +239,17 @@ export default function CheckIn({ scores, quick, focus, checkins, navigate }) {
               </label>
             ))}
           </div>
-          <div className="ci-ends" aria-hidden="true">
+          <div className="ci-ends t-foot" aria-hidden="true">
             <span>Neglected</span>
             <span>Thriving</span>
           </div>
         </fieldset>
+      </div>
 
+      <div className="cd">
         <div className="ci-q">
-          <label htmlFor="ci-note" className="ci-legend">
-            A note, if you like <span style={{ color: "#888", fontWeight: 400 }}>(optional)</span>
+          <label htmlFor="ci-note" className="ci-legend t-head">
+            A note, if you like <span className="t-foot">(optional)</span>
           </label>
           <textarea
             id="ci-note"
@@ -266,26 +260,26 @@ export default function CheckIn({ scores, quick, focus, checkins, navigate }) {
             onChange={(e) => setNote(e.target.value)}
             placeholder="What helped, what got in the way."
           />
-          <p style={{ fontSize: 12, color: "#888", textAlign: "right", marginTop: 4 }}>
+          <p className="t-foot ci-count">
             {note.length}/{MAX_NOTE}
           </p>
         </div>
       </div>
 
-      <div className="ci-actions">
+      <div className="action-bar">
+        {!ready && (
+          <p id="ci-hint" className="t-foot ci-hint">
+            Answer the first two questions to save.
+          </p>
+        )}
         <button
           type="submit"
-          className="btn btn-primary ci-save"
+          className="btn btn-primary btn-block ci-save"
           disabled={!ready}
           aria-describedby={ready ? undefined : "ci-hint"}
         >
           Save check-in
         </button>
-        {!ready && (
-          <p id="ci-hint" className="ci-hint">
-            Answer the first two questions to save.
-          </p>
-        )}
       </div>
     </form>
   );

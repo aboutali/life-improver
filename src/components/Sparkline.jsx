@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { parseLocalDate } from "../lib/dates.js";
 
-const PAD = 5;
+const PAD = 6;
 
 function shortDate(value) {
   try {
@@ -36,7 +36,7 @@ export default function Sparkline({ series = [], width: initialWidth = 120, heig
   // One point is not a line yet: say so instead of drawing a lone dot.
   if (series.length === 1) {
     return (
-      <p className="spark spark-start" style={{ minHeight: height }}>
+      <p className="t-foot spark spark-start" style={{ minHeight: height }}>
         Your line starts here.
       </p>
     );
@@ -55,18 +55,19 @@ export default function Sparkline({ series = [], width: initialWidth = 120, heig
 
   return (
     <div ref={boxRef} className="spark" style={{ height }}>
-    <svg
-      role="img"
-      aria-label={name}
-      viewBox={`0 0 ${width} ${height}`}
-      width="100%"
-      height={height}
-      style={{ display: "block" }}
-    >
-      <polyline points={points} fill="none" stroke="#2B6CB0" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-      <circle cx={x(0)} cy={y(first.score)} r="2" fill="#fff" stroke="#2B6CB0" strokeWidth="1.5" />
-      <circle cx={x(series.length - 1)} cy={y(last.score)} r="3.5" fill="#2B6CB0" />
-    </svg>
+      <svg
+        role="img"
+        aria-label={name}
+        viewBox={`0 0 ${width} ${height}`}
+        width="100%"
+        height={height}
+        style={{ display: "block" }}
+      >
+        <polygon className="spark-area" points={`${x(0).toFixed(1)},${height - PAD} ${points} ${x(series.length - 1).toFixed(1)},${height - PAD}`} />
+        <polyline className="spark-line" points={points} fill="none" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+        <circle className="spark-dot-first" cx={x(0)} cy={y(first.score)} r="3" strokeWidth="2" />
+        <circle className="spark-dot-last" cx={x(series.length - 1)} cy={y(last.score)} r="4.5" />
+      </svg>
     </div>
   );
 }

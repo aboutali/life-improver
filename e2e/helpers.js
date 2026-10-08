@@ -65,3 +65,11 @@ export const RETURNING = {
 export function friction(testInfo, note) {
   testInfo.annotations.push({ type: "friction", description: note });
 }
+
+// Journey shows its totals as tiles: a number above a label. Read the tile by
+// its label so the check does not depend on class names or on how the number
+// and label are laid out. `label` is the exact visible label, e.g. "weeks active".
+export async function expectJourneyStat(page, count, label) {
+  const tile = page.getByRole("main").getByText(label, { exact: true }).locator("..");
+  await expect(tile).toHaveText(`${count} ${label}`, { useInnerText: true });
+}

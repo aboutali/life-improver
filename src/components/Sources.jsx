@@ -5,40 +5,36 @@ export default function Sources() {
 
   return (
     <div>
-      <div style={{ marginBottom: 24 }}>
-        <h2 className="sf cat-title">The thinking behind it.</h2>
-        <p style={{ fontSize: 14, color: "#666", maxWidth: 600 }}>
-          None of this is invented. Every dimension, every category, every practice traces back to research, philosophy, or tradition that has stood the test of time.
-        </p>
-        <p style={{ fontSize: 13, color: "#767676", marginTop: 8 }}>
-          {total} sources · {SOURCES.length} disciplines
-        </p>
-        <a className="cat-link" href="#/practices">Browse the practices</a>
-      </div>
+      <h2 className="t-large cat-title">The thinking behind it.</h2>
+      <p className="t-sub cat-intro">
+        None of this is invented. Every dimension, every category, every practice traces back to research, philosophy, or tradition that has stood the test of time.
+      </p>
+      <p className="t-foot cat-count">
+        {total} sources · {SOURCES.length} disciplines
+      </p>
+      <p className="cat-links">
+        <a className="btn-text" href="#/practices">Browse the practices</a>
+      </p>
 
       {SOURCES.map((cat, ci) => (
-        <div key={ci} style={{ marginBottom: 24 }}>
-          <div style={{ borderBottom: "2px solid #2B6CB0", paddingBottom: 8, marginBottom: 16 }}>
-            <p style={{ fontWeight: 600, fontSize: 15, color: "#1A1A1A" }}>{cat.category}</p>
-          </div>
-          {cat.items.map((src, si) => (
-            <div key={si} className="cd" style={{ padding: 16, marginBottom: 8 }}>
-              <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                <span style={{ color: "#2B6CB0", fontWeight: 600, fontSize: 12, minWidth: 28, paddingTop: 2, textAlign: "right" }}>
-                  {typeof src.year === "number" ? src.year : src.year || "—"}
-                </span>
-                <div style={{ flex: 1 }}>
-                  <p style={{ fontSize: 14, color: "#1A1A1A", marginBottom: 2 }}>
-                    <span style={{ fontWeight: 600 }}>{src.author}</span>
+        <section key={ci}>
+          <h3 className="t-eyebrow list-title">{cat.category}</h3>
+          <div className="list">
+            {cat.items.map((src, si) => (
+              <div key={si} className="row cat-src">
+                <span className="cat-year">{typeof src.year === "number" ? src.year : src.year || "—"}</span>
+                <div className="cat-src-body">
+                  <p className="t-head">
+                    {src.author}
                     {src.author && " — "}
-                    <span className="sf" style={{ fontStyle: "italic" }}>{src.title}</span>
+                    <span className="sf cat-src-title">{src.title}</span>
                   </p>
-                  <p style={{ fontSize: 13, color: "#666", lineHeight: 1.6 }}>{src.note}</p>
+                  <p className="t-foot">{src.note}</p>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        </section>
       ))}
     </div>
   );

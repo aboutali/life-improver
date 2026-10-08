@@ -1,6 +1,7 @@
 import { useId, useState } from "react";
 import { downloadIcs } from "../lib/ics.js";
 import { nextOccurrence, firstOneLabel } from "../lib/rhythm.js";
+import { Chevron } from "./TodayIcons.jsx";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -15,7 +16,9 @@ export default function CalendarButton({
   defaultDay = 0,
   defaultTime = "18:00",
   minDaysAhead = 0,
-  triggerClassName = "btn btn-tap",
+  triggerClassName = "btn",
+  icon = null,
+  chevron = false,
   defaultOpen = false,
   showTrigger = true,
 }) {
@@ -41,7 +44,9 @@ export default function CalendarButton({
           aria-controls={`${uid}-panel`}
           onClick={() => setOpen((o) => !o)}
         >
-          {label}
+          {icon}
+          <span>{label}</span>
+          {chevron && <Chevron />}
         </button>
       )}
       {open && (
@@ -74,7 +79,7 @@ export default function CalendarButton({
           <p className="cal-first">
             {firstOneLabel({ day, time: time || defaultTime, minDaysAhead })}
           </p>
-          <button type="button" className="btn btn-tap" onClick={add}>
+          <button type="button" className="btn btn-block" onClick={add}>
             Download calendar file
           </button>
           <p className="cal-note" role="status">

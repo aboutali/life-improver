@@ -42,12 +42,22 @@ describe("Settings", () => {
   it("renders the sections and copy", () => {
     render(<Settings {...makeProps()} />);
     expect(screen.getByRole("heading", { level: 2, name: /settings/i })).toBeInTheDocument();
-    for (const name of ["Your data", "Start over", "Privacy", "Not medical advice", "Install the app"]) {
+    for (const name of ["Your data", "Start over", "Privacy", "Not medical advice", "Install the app", "Explore", "About"]) {
       expect(screen.getByRole("heading", { level: 3, name })).toBeInTheDocument();
     }
     expect(screen.getByText(/reflection, not medical or psychological care/i)).toBeInTheDocument();
     expect(screen.getByText(/no accounts, no server, no tracking/i)).toBeInTheDocument();
     expect(screen.getByText(/Add to Home Screen/)).toBeInTheDocument();
+  });
+
+  it("links to Framework and Sources, and carries the attribution in an About card", () => {
+    render(<Settings {...makeProps()} />);
+    expect(screen.getByRole("link", { name: "Framework" })).toHaveAttribute("href", "#/framework");
+    expect(screen.getByRole("link", { name: "Sources" })).toHaveAttribute("href", "#/sources");
+    const about = screen.getByRole("region", { name: "About" });
+    expect(about).toHaveTextContent(
+      "Built on the work of Aristotle, Frankl, Gottman, Maslow, Csikszentmihalyi, and the traditions that came before."
+    );
   });
 
   it("keeps the restore control a real, focusable file input beside muted help text", () => {

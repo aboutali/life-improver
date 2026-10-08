@@ -109,28 +109,27 @@ export default function App() {
   }
 
   const maxWidth = NARROW.has(path) ? 720 : 960;
-  const footLink = { color: "#2B6CB0", display: "inline-flex", alignItems: "center", minHeight: 44, padding: "0 12px" };
 
   return (
     <div style={{ minHeight: "100vh" }}>
       <Header path={path} />
       <TabBar path={path} />
 
-      <main id="main" ref={mainRef} tabIndex={-1} style={{ maxWidth: 960, margin: "0 auto", padding: "24px 24px 64px", outline: "none" }}>
+      <main id="main" ref={mainRef} tabIndex={-1} className="app-main">
         <div className="app-screen" style={{ maxWidth }}>
           <Notices path={path} isNewcomer={isNewcomer} hasData={hasData} onDownload={downloadCopy} />
           <ErrorBoundary resetKey={path}>{screen}</ErrorBoundary>
         </div>
       </main>
 
-      <footer style={{ borderTop: "1px solid #D5D5D5", background: "#fff", padding: "16px 24px", textAlign: "center" }}>
-        <p style={{ fontSize: 12, color: "#AAA" }}>
+      <footer className="app-footer">
+        <p className="t-foot">
           Built on the work of Aristotle, Frankl, Gottman, Maslow, Csikszentmihalyi, and the traditions that came before.
         </p>
-        <nav aria-label="More" className="app-foot" style={{ fontSize: 12, marginTop: 8 }}>
-          <a href={href("/framework")} style={footLink}>Framework</a>
-          <a href={href("/sources")} style={footLink}>Sources</a>
-          <a href={href("/settings")} style={footLink}>Settings &amp; privacy</a>
+        <nav aria-label="More" className="app-foot">
+          <a href={href("/framework")}>Framework</a>
+          <a href={href("/sources")}>Sources</a>
+          <a href={href("/settings")}>Settings &amp; privacy</a>
         </nav>
       </footer>
     </div>

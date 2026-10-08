@@ -197,7 +197,7 @@ test.describe("Group 1: first time and first week", () => {
     expect(await readStore(page, "focus")).toMatchObject({ domainId: 7, subIndex: 1, practiceIndex: 0, origin: "picked" });
     await shot(page, testInfo, "S03", "4-today");
     // Today repeats the wording the user just saw.
-    await expect(page.locator(".fc .today-muted")).toHaveText("You chose this place to begin.");
+    await expect(page.getByRole("region", { name: pick.name }).getByText("You chose this place to begin.")).toBeVisible();
 
     // Changing a rating afterwards makes the pick stale: the suggestion returns.
     expectNoErrors();

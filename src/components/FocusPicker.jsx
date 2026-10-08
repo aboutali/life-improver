@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { FRAMEWORK } from "../data/framework.js";
 import { pickerSuggestions } from "../lib/recommend.js";
+import { Chevron } from "./TodayIcons.jsx";
 
 // Shared "choose where to begin" list, used by Today and Onboarding.
 // Two parts: "Suggested" (three subs from what has been rated) and "All areas"
@@ -38,28 +39,29 @@ export default function FocusPicker({
 
   return (
     <div className="fp" role="group" aria-labelledby={`${uid}-title`}>
-      <h3 id={`${uid}-title`} ref={headingRef} tabIndex={-1} className="sf fp-title">Choose where to begin</h3>
+      <h3 id={`${uid}-title`} ref={headingRef} tabIndex={-1} className="t-title fp-title">Choose where to begin</h3>
 
       {suggestions.length > 0 && (
         <section aria-labelledby={`${uid}-sug`}>
-          <h4 id={`${uid}-sug`} className="fp-part">Suggested</h4>
-          <p className="fp-hint">{hint}</p>
-          <ul className="fp-list">
+          <h4 id={`${uid}-sug`} className="t-eyebrow fp-part">Suggested</h4>
+          <p className="t-foot fp-hint">{hint}</p>
+          <ul className="list fp-list">
             {suggestions.map((o) => (
               <li key={`${o.domainId}-${o.subIndex}`}>
                 <button
                   type="button"
-                  className="fp-opt"
+                  className="row fp-opt"
                   aria-current={o.current ? "true" : undefined}
                   onClick={() => onPick(o.domainId, o.subIndex)}
                 >
                   <span className="fp-opt-main">
-                    <span className="fp-eyebrow">{o.domainName}</span>
-                    <span className="sf fp-name">{o.name}</span>
+                    <span className="t-eyebrow">{o.domainName}</span>
+                    <span className="t-head fp-name">{o.name}</span>
                   </span>
-                  <span className="fp-opt-note">
+                  <span className="t-foot fp-opt-note">
                     {o.current ? currentLabel : o.source === "quick" ? `${o.score}/10 quick` : `${o.score}/10`}
                   </span>
+                  <Chevron />
                 </button>
               </li>
             ))}
@@ -68,8 +70,8 @@ export default function FocusPicker({
       )}
 
       <section aria-labelledby={`${uid}-all`}>
-        <h4 id={`${uid}-all`} className="fp-part">All areas</h4>
-        <ul className="fp-groups">
+        <h4 id={`${uid}-all`} className="t-eyebrow fp-part">All areas</h4>
+        <ul className="list fp-groups">
           {framework.map((d) => {
             const isOpen = open.includes(d.id);
             const panelId = `${uid}-g${d.id}`;
@@ -77,13 +79,13 @@ export default function FocusPicker({
               <li key={d.id}>
                 <button
                   type="button"
-                  className="fp-group"
+                  className="row fp-group"
                   aria-expanded={isOpen}
                   aria-controls={panelId}
                   onClick={() => toggle(d.id)}
                 >
-                  <span className="sf">{d.domain}</span>
-                  <span className="fp-chev" aria-hidden="true">{isOpen ? "−" : "+"}</span>
+                  <span className="t-head">{d.domain}</span>
+                  <Chevron />
                 </button>
                 {isOpen && (
                   <ul id={panelId} className="fp-subs">
@@ -94,12 +96,12 @@ export default function FocusPicker({
                         <li key={si}>
                           <button
                             type="button"
-                            className="fp-opt fp-sub"
+                            className="row fp-opt fp-sub"
                             aria-current={mine ? "true" : undefined}
                             onClick={() => onPick(d.id, si)}
                           >
-                            <span className="sf fp-name">{sub.name}</span>
-                            <span className="fp-opt-note">
+                            <span className="fp-name">{sub.name}</span>
+                            <span className="t-foot fp-opt-note">
                               {mine ? currentLabel : typeof score === "number" ? `${score}/10` : ""}
                             </span>
                           </button>
@@ -114,7 +116,7 @@ export default function FocusPicker({
         </ul>
       </section>
 
-      <button type="button" className="btn btn-tap" onClick={onClose}>
+      <button type="button" className="btn btn-block fp-close" onClick={onClose}>
         {closeLabel}
       </button>
     </div>

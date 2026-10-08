@@ -75,19 +75,14 @@ export default function Ideas({ focus, checkins, navigate, query }) {
 
   return (
     <div ref={rootRef}>
-      <div style={{ marginBottom: 24 }}>
-        <h2 className="sf cat-title">{TOTAL_IDEAS} ways forward.</h2>
-        <p style={{ fontSize: 14, color: "#666", maxWidth: 600 }}>
-          Pick one. Make it part of your life. Then pick another. That's how this works.
-        </p>
-        <p className="cat-links">
-          <a href="#/framework">About the framework</a>
-          <span aria-hidden="true"> &middot; </span>
-          <a href="#/sources">Sources</a>
-        </p>
-      </div>
+      <h2 className="t-large cat-title">{TOTAL_IDEAS} ways forward.</h2>
+      <p className="t-sub cat-intro">Pick one. Make it part of your life. Then pick another. That's how this works.</p>
+      <p className="cat-links">
+        <a className="btn-text" href="#/framework">About the framework</a>
+        <a className="btn-text" href="#/sources">Sources</a>
+      </p>
 
-      <div className="sh" style={{ display: "flex", gap: 8, marginBottom: 24, paddingBottom: 4 }}>
+      <div className="sh cat-chips">
         {FRAMEWORK.map((d, i) => (
           <button
             key={d.id}
@@ -99,60 +94,56 @@ export default function Ideas({ focus, checkins, navigate, query }) {
         ))}
       </div>
 
-      <div>
-        {domIdx === null ? (
-          <div className="cd" style={{ textAlign: "center", padding: 48, color: "#999" }}>
-            <p className="sf" style={{ fontSize: 16, marginBottom: 8, color: "#666" }}>Pick a domain.</p>
-            <p style={{ fontSize: 13 }}>Each one holds dozens of practices, drawn from research and tradition.</p>
+      {domIdx === null ? (
+        <div className="cd cat-empty">
+          <p className="t-title">Pick a domain.</p>
+          <p className="t-sub">Each one holds dozens of practices, drawn from research and tradition.</p>
+        </div>
+      ) : (
+        <>
+          <div className="sh cat-chips">
+            {dom.subs.map((s, si) => (
+              <button
+                key={si}
+                className={`sp ${subIdx === si ? "a" : ""}`}
+                onClick={() => choose(domIdx, si)}
+              >
+                {s.name}
+              </button>
+            ))}
           </div>
-        ) : (
-          <>
-            <div className="sh" style={{ display: "flex", gap: 6, marginBottom: 20, paddingBottom: 4 }}>
-              {dom.subs.map((s, si) => (
-                <button
-                  key={si}
-                  className={`sp ${subIdx === si ? "a" : ""}`}
-                  onClick={() => choose(domIdx, si)}
-                >
-                  {s.name}
-                </button>
-              ))}
-            </div>
 
-            <div style={{ marginBottom: 16 }}>
-              <p style={{ fontWeight: 600, fontSize: "var(--fs-lead)", color: "#1A1A1A", marginBottom: 4 }}>{sub.name}</p>
-              <p style={{ fontSize: 13, color: "#888", lineHeight: 1.6 }}>{sub.desc}</p>
-            </div>
+          <div className="cat-subhead">
+            <p className="t-title">{sub.name}</p>
+            <p className="t-sub">{sub.desc}</p>
+          </div>
 
-            <div className="cd" style={{ padding: 0 }}>
-              {sub.ideas.map((idea, i) => {
-                const isCurrent =
-                  current && current.domainId === dom.id && current.subIndex === subIdx && current.practiceIndex === i;
-                return (
-                  <div key={i} className="ir cat-row">
-                    <span style={{ color: "#2B6CB0", fontWeight: 600, fontSize: 13, minWidth: 24, paddingTop: 1 }}>
-                      {String(i + 1).padStart(2, "0")}
-                    </span>
-                    <span className="cat-text">{idea}</span>
-                    {isCurrent ? (
-                      <span className="cat-tag">This week</span>
-                    ) : (
-                      <button
-                        type="button"
-                        className="btn-text cat-act"
-                        aria-label={`Practise this week: ${idea}`}
-                        onClick={() => adopt(i)}
-                      >
-                        Practise this week
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </>
-        )}
-      </div>
+          <div className="list">
+            {sub.ideas.map((idea, i) => {
+              const isCurrent =
+                current && current.domainId === dom.id && current.subIndex === subIdx && current.practiceIndex === i;
+              return (
+                <div key={i} className="ir cat-row">
+                  <span className="cat-num">{String(i + 1).padStart(2, "0")}</span>
+                  <span className="cat-text">{idea}</span>
+                  {isCurrent ? (
+                    <span className="cat-tag">This week</span>
+                  ) : (
+                    <button
+                      type="button"
+                      className="cat-act"
+                      aria-label={`Practise this week: ${idea}`}
+                      onClick={() => adopt(i)}
+                    >
+                      Practise this week
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { freezeAt, seed, go, readStore, trackErrors, friction, RETURNING } from "./helpers.js";
+import { freezeAt, seed, go, readStore, trackErrors, friction, RETURNING, expectJourneyStat } from "./helpers.js";
 import { isoWeek } from "../src/lib/dates.js";
 import { FRAMEWORK } from "../src/data/framework.js";
 
@@ -155,7 +155,7 @@ test("S12: checks in twice in one week", async ({ page }, testInfo) => {
   await moveTo(page, at("2026-10-07T20:00:00"));
   await go(page, "/checkin");
   await expect(page.getByText("You already checked in this week. A new entry adds to it.")).toBeVisible();
-  await expect(page.getByRole("link", { name: "Back to Today" })).toBeVisible();
+  await expect(page.locator("main").getByRole("link", { name: "Back to Today" })).toBeVisible();
   await expect(page.getByText("Last time: 5")).toBeVisible();
   await shot(page, testInfo, "S12", "1-second-form");
   await fillCheckin(page, { practised: "Some", score: 7, note: "Second thoughts after a good evening." });
@@ -170,7 +170,8 @@ test("S12: checks in twice in one week", async ({ page }, testInfo) => {
   await go(page, "/journey");
   await shot(page, testInfo, "S12", "4-journey");
   // 4 entries, but only 3 distinct weeks: weeks are not double-counted.
-  await expect(page.getByText("3 weeks active · 4 check-ins")).toBeVisible();
+  await expectJourneyStat(page, 3, "weeks active");
+  await expectJourneyStat(page, 4, "check-ins");
   await expect(page.locator(".jr-log")).toHaveCount(4);
   await expect(page.getByText("Second thoughts after a good evening.")).toBeVisible();
   // N8: the second entry of the week is marked, and the sparkline counts the week once.
@@ -287,7 +288,8 @@ test("S15: returns after five weeks without a check-in", async ({ page }, testIn
   await expect(page).toHaveURL(/#\/$/);
   await go(page, "/journey");
   await shot(page, testInfo, "S15", "5-journey");
-  await expect(page.getByText("3 weeks active · 3 check-ins")).toBeVisible();
+  await expectJourneyStat(page, 3, "weeks active");
+  await expectJourneyStat(page, 3, "check-ins");
   const list = await readStore(page, "checkins");
   expect(list[2]).toMatchObject({ date: "2026-11-04", week: "2026-W45", practised: "no" });
   friction(testInfo, "S15: after 'Pick up this practice' the form still asks 'Did you practise this week?' about a practice that has been dormant for five weeks, and the practice is the September one. A returning user who picks up gets no hint that a smaller practice is allowed until after they save. Proposed: on the welcome-back card, add a 'Start smaller' line, or show 'Try a smaller practice' on Today for lapsed users.");
@@ -417,7 +419,8 @@ test("S19: eight weeks of data across two subs stays readable", async ({ page },
     checkins: eight,
   });
   await go(page, "/journey");
-  await expect(page.getByText("8 weeks active · 8 check-ins")).toBeVisible();
+  await expectJourneyStat(page, 8, "weeks active");
+  await expectJourneyStat(page, 8, "check-ins");
   await shot(page, testInfo, "S19", "1-journey-top");
   await expect(page.locator(".jr-row")).toHaveCount(2);
   // N8: grouped by week, newest first, six weeks shown.
@@ -548,7 +551,8 @@ test("S42: welcome-back card, the user starts fresh", async ({ page }, testInfo)
   await shot(page, testInfo, "S42", "2-fresh-focus");
   // Old history stays.
   await go(page, "/journey");
-  await expect(page.getByText("2 weeks active · 2 check-ins")).toBeVisible();
+  await expectJourneyStat(page, 2, "weeks active");
+  await expectJourneyStat(page, 2, "check-ins");
   expectNoErrors();
 });
 
@@ -688,7 +692,8 @@ test("S48: Journey groups the log by week and plots one point per week", async (
     ],
   });
   await go(page, "/journey");
-  await expect(page.getByText("2 weeks active · 3 check-ins")).toBeVisible();
+  await expectJourneyStat(page, 2, "weeks active");
+  await expectJourneyStat(page, 3, "check-ins");
   await shot(page, testInfo, "S48", "1-journey");
   // Week headings, newest first.
   const headings = page.getByRole("heading", { level: 4 });

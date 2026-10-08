@@ -17,6 +17,7 @@ import { checkinEvent, practiceEvent } from "../lib/ics.js";
 import FocusPicker from "./FocusPicker.jsx";
 import Garden from "./Garden.jsx";
 import CalendarButton from "./CalendarButton.jsx";
+import { CalendarIcon, Chevron, CompassIcon, SwapIcon } from "./TodayIcons.jsx";
 
 const appUrl = () => window.location.origin + window.location.pathname;
 
@@ -99,7 +100,7 @@ export default function Today({ scores, quick, focus, checkins, navigate }) {
 
   return (
     <div className="today">
-      <h2 className="sf today-greet">This week, tend one thing.</h2>
+      <h2 className="t-large today-greet">This week, tend one thing.</h2>
 
       {away > 0 && (
         <WelcomeBackCard
@@ -178,10 +179,8 @@ export default function Today({ scores, quick, focus, checkins, navigate }) {
         />
       ) : (
         <section className="cd">
-          <p className="sf" style={{ fontSize: "var(--fs-lead)", color: "#1A1A1A", marginBottom: 12 }}>
-            Nothing is rated yet.
-          </p>
-          <button type="button" className="btn btn-primary btn-tap" onClick={() => navigate("/welcome")}>
+          <p className="t-title today-h3">Nothing is rated yet.</p>
+          <button type="button" className="btn btn-primary btn-block" onClick={() => navigate("/welcome")}>
             Begin with a short welcome
           </button>
         </section>
@@ -192,9 +191,12 @@ export default function Today({ scores, quick, focus, checkins, navigate }) {
       )}
 
       <Garden scores={scores} quickScores={quickScores} focusDomainId={hasFocus ? current.domainId : null} />
-      <p className="today-refine">
-        <a href="#/assess">Refine with the full assessment</a>
-      </p>
+      <div className="list today-refine">
+        <a className="row" href="#/assess">
+          <span>Refine with the full assessment</span>
+          <Chevron />
+        </a>
+      </div>
     </div>
   );
 }
@@ -204,17 +206,20 @@ function FocusCard({ focus, domain, sub, reason, onSwap, picking, onChoose, trig
   const practiceSlot = defaultPracticeSlot();
   return (
     <section className="cd fc" aria-labelledby="fc-title">
-      <p className="fc-eyebrow">Your practice this week &middot; {domain.domain}</p>
-      <h3 id="fc-title" className="sf fc-title">{sub.name}</h3>
+      <p className="t-eyebrow fc-eyebrow">Your practice this week &middot; {domain.domain}</p>
+      <h3 id="fc-title" className="t-title fc-title">{sub.name}</h3>
       <p className="sf fc-practice">{text}</p>
-      <p className="today-muted">{reason}</p>
-      <div className="fc-actions">
-        <button type="button" className="btn-text" onClick={onSwap}>
-          Swap practice
+      <p className="t-foot fc-reason">{reason}</p>
+      <div className="list fc-list">
+        <button type="button" className="row" onClick={onSwap}>
+          <SwapIcon />
+          <span>Swap practice</span>
         </button>
         <CalendarButton
           label="Add to calendar"
-          triggerClassName="btn-text"
+          triggerClassName="row"
+          icon={<CalendarIcon />}
+          chevron
           filename="life-improver-practice.ics"
           defaultDay={practiceSlot.day}
           defaultTime={practiceSlot.time}
@@ -225,12 +230,14 @@ function FocusCard({ focus, domain, sub, reason, onSwap, picking, onChoose, trig
         />
         <button
           type="button"
-          className="btn-text"
+          className="row"
           ref={triggerRef}
           aria-expanded={picking}
           onClick={onChoose}
         >
-          Choose another focus
+          <CompassIcon />
+          <span>Choose another focus</span>
+          <Chevron />
         </button>
       </div>
       {picking && picker}
@@ -249,16 +256,16 @@ function SuggestionCard({ suggestion, today, checkins, picking, onPlant, onChoos
   });
   return (
     <section className="cd fc" aria-labelledby="fc-title">
-      <p className="fc-eyebrow">{domain.domain}</p>
-      <h3 id="fc-title" className="sf fc-title">{sub.name}</h3>
+      <p className="t-eyebrow fc-eyebrow">{domain.domain}</p>
+      <h3 id="fc-title" className="t-title fc-title">{sub.name}</h3>
       <p className="sf fc-practice">{sub.ideas[practiceIndex]}</p>
-      <p className="today-muted">{suggestion.reason}</p>
+      <p className="t-foot fc-reason">{suggestion.reason}</p>
       <div className="fc-actions">
-        <button type="button" className="btn btn-primary btn-tap" onClick={onPlant}>
+        <button type="button" className="btn btn-primary btn-block" onClick={onPlant}>
           Plant this seed
         </button>
         {!picking && (
-          <button type="button" className="btn btn-tap" ref={triggerRef} onClick={onChoose}>
+          <button type="button" className="btn btn-block" ref={triggerRef} onClick={onChoose}>
             Choose another
           </button>
         )}
@@ -271,13 +278,13 @@ function SuggestionCard({ suggestion, today, checkins, picking, onPlant, onChoos
 function WelcomeBackCard({ weeks, onPickUp, onFresh }) {
   return (
     <section className="cd wb" aria-labelledby="wb-line">
-      <p id="wb-line" className="sf wb-line">Welcome back. It has been {weeks} weeks.</p>
-      <p className="today-muted">Nothing is lost. Begin again wherever you are.</p>
+      <p id="wb-line" className="t-title wb-line">Welcome back. It has been {weeks} weeks.</p>
+      <p className="t-sub wb-sub">Nothing is lost. Begin again wherever you are.</p>
       <div className="fc-actions">
-        <button type="button" className="btn btn-primary btn-tap" onClick={onPickUp}>
+        <button type="button" className="btn btn-primary btn-block" onClick={onPickUp}>
           Pick up this practice
         </button>
-        <button type="button" className="btn btn-tap" onClick={onFresh}>
+        <button type="button" className="btn btn-block" onClick={onFresh}>
           Start fresh
         </button>
       </div>
@@ -289,14 +296,14 @@ function SeasonCard({ count, subName, onStay, onChoose }) {
   const lead = count === 4 ? "Four" : String(count);
   return (
     <section className="cd wb" aria-labelledby="season-line">
-      <p id="season-line" className="sf wb-line">
+      <p id="season-line" className="t-title wb-line">
         {lead} weeks with {subName}. Stay for another season, or choose a new focus?
       </p>
       <div className="fc-actions">
-        <button type="button" className="btn btn-tap" onClick={onStay}>
+        <button type="button" className="btn btn-primary btn-block" onClick={onStay}>
           Stay with {subName}
         </button>
-        <button type="button" className="btn btn-tap" onClick={onChoose}>
+        <button type="button" className="btn btn-block" onClick={onChoose}>
           Choose a new focus
         </button>
       </div>
@@ -307,14 +314,14 @@ function SeasonCard({ count, subName, onStay, onChoose }) {
 function NudgeCard({ name, score, onSwitch, onDismiss }) {
   return (
     <section className="cd wb nudge" aria-labelledby="nudge-line">
-      <p id="nudge-line" className="sf wb-line">
+      <p id="nudge-line" className="t-title wb-line">
         {name} is now your lowest ({score}/10). Switch your focus?
       </p>
       <div className="fc-actions">
-        <button type="button" className="btn btn-tap" onClick={onSwitch}>
+        <button type="button" className="btn btn-block" onClick={onSwitch}>
           Switch
         </button>
-        <button type="button" className="btn-text" onClick={onDismiss}>
+        <button type="button" className="btn-text btn-block" onClick={onDismiss}>
           Not now
         </button>
       </div>
@@ -330,26 +337,26 @@ function CheckinCard({ focus, checkins, today, navigate }) {
   const slot = defaultCheckinSlot();
   return (
     <section className="cd" aria-labelledby="checkin-title">
-      <h3 id="checkin-title" className="sf today-h3">
+      <h3 id="checkin-title" className="t-title today-h3">
         {done ? "Checked in this week" : "Look back on the week"}
       </h3>
       {done ? (
-        <p className="today-muted">
+        <p className="t-sub">
           {last ? `You rated it ${last.score}/10. ` : ""}Rest. The next check-in will wait for you.
         </p>
       ) : open ? (
         <>
-          <p className="today-muted">Three questions. About a minute.</p>
-          <button type="button" className="btn btn-primary btn-tap" onClick={() => navigate("/checkin")}>
+          <p className="t-sub">Three questions. About a minute.</p>
+          <button type="button" className="btn btn-primary btn-block" onClick={() => navigate("/checkin")}>
             Check in
           </button>
         </>
       ) : (
         <>
-          <p className="today-muted">Your first check-in opens {weekdayName(checkinOpensOn(focus))}.</p>
+          <p className="t-sub">Your first check-in opens {weekdayName(checkinOpensOn(focus))}.</p>
           <a
             href="#/checkin"
-            className="btn-text btn-quiet"
+            className="btn btn-block"
             onClick={(e) => {
               e.preventDefault();
               navigate("/checkin");
@@ -359,10 +366,10 @@ function CheckinCard({ focus, checkins, today, navigate }) {
           </a>
         </>
       )}
-      <div>
+      <div className="remind">
         <button
           type="button"
-          className="btn-text btn-quiet"
+          className="btn-text"
           aria-expanded={reminding}
           aria-controls="remind-weekly"
           onClick={() => setReminding((r) => !r)}
