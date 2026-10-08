@@ -56,6 +56,10 @@ export default function App() {
     const frame = requestAnimationFrame(() => {
       const target = mainRef.current?.querySelector("h2") ?? mainRef.current;
       if (!target) return;
+      // The screen, or the person, may already have put focus on something inside
+      // main during that frame (a Tab right after the route change). Do not take it back.
+      const active = document.activeElement;
+      if (active && active !== target && active !== mainRef.current && mainRef.current?.contains(active)) return;
       if (!target.hasAttribute("tabindex")) target.setAttribute("tabindex", "-1");
       target.focus({ preventScroll: true });
     });

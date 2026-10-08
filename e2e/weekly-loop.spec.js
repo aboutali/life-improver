@@ -152,6 +152,10 @@ test("S12: checks in twice in one week", async ({ page }, testInfo) => {
   await fillCheckin(page, { practised: "Yes", score: 5 });
   await saveCheckin(page);
   await page.getByRole("button", { name: "Keep this practice" }).click();
+  // Wait for Today to show. The check-in screen keeps its "saved" state while it is
+  // mounted, so opening /checkin again before Today renders would show it unchanged.
+  await expect(page).toHaveURL(/#\/$/);
+  await expect(page.getByRole("heading", { name: "Checked in this week" })).toBeVisible();
   await moveTo(page, at("2026-10-07T20:00:00"));
   await go(page, "/checkin");
   await expect(page.getByText("You already checked in this week. A new entry adds to it.")).toBeVisible();
@@ -163,6 +167,7 @@ test("S12: checks in twice in one week", async ({ page }, testInfo) => {
   await expect(page.getByRole("heading", { name: "Check-in saved" })).toBeVisible();
   await shot(page, testInfo, "S12", "2-second-reward");
   await page.getByRole("button", { name: "Keep this practice" }).click();
+  await expect(page.getByRole("heading", { name: "Checked in this week" })).toBeVisible();
   // P1: the second entry is the 4th check-in on this sub but only the 3rd
   // distinct week, so the season review does not show yet.
   await expect(page.locator("#season-line")).toHaveCount(0);

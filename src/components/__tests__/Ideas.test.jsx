@@ -28,9 +28,31 @@ describe("Ideas", () => {
     expect(screen.getByRole("button", { name: d.subs[1].name })).toHaveClass("a");
   });
 
-  it("ignores an invalid query", () => {
-    render(<Ideas {...props({ query: { d: "99", s: "x" } })} />);
-    expect(screen.getByText("Pick a domain.")).toBeInTheDocument();
+  it("opens on the first domain and sub when there is no query and no focus", () => {
+    const navigate = vi.fn();
+    render(<Ideas {...props({ navigate })} />);
+    expect(screen.getByRole("button", { name: FRAMEWORK[0].domain })).toHaveClass("a");
+    expect(screen.getByRole("button", { name: FRAMEWORK[0].subs[0].name })).toHaveClass("a");
+    expect(screen.getByText(FRAMEWORK[0].subs[0].ideas[0])).toBeInTheDocument();
+    expect(screen.queryByText("Pick a domain.")).toBeNull();
+    expect(navigate).not.toHaveBeenCalled(); // the default selection does not write the address
+  });
+
+  it("opens on the current focus when the query is invalid", () => {
+    const d = FRAMEWORK[3];
+    const current = { domainId: d.id, subIndex: 1, practiceIndex: 0, startedAt: toLocalDate(), skipped: [] };
+    const navigate = vi.fn();
+    render(<Ideas {...props({ navigate, query: { d: "99", s: "x" }, focus: { focus: current, setFocus: vi.fn() } })} />);
+    expect(screen.getByRole("button", { name: d.domain })).toHaveClass("a");
+    expect(screen.getByRole("button", { name: d.subs[1].name })).toHaveClass("a");
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it("prefers a valid query over the current focus", () => {
+    const current = { domainId: FRAMEWORK[3].id, subIndex: 1, practiceIndex: 0, startedAt: toLocalDate(), skipped: [] };
+    const d = FRAMEWORK[1];
+    render(<Ideas {...props({ query: { d: String(d.id), s: "0" }, focus: { focus: current, setFocus: vi.fn() } })} />);
+    expect(screen.getByRole("button", { name: d.domain })).toHaveClass("a");
   });
 
   it("falls back to sub 0 for a bad sub index", () => {
@@ -107,13 +129,22 @@ describe("Ideas", () => {
     expect(screen.getByRole("button", { name: FRAMEWORK[2].subs[0].name })).toHaveClass("a");
   });
 
-  it("scrolls the active pills into view when scrollIntoView exists (P5)", () => {
+  it("centres the active pills in their scroller without scrollIntoView (P5)", () => {
+    const rect = (left, width) => ({ left, width, right: left + width, top: 0, bottom: 0, height: 0, x: left, y: 0 });
+    const original = Element.prototype.getBoundingClientRect;
     const spy = vi.fn();
     Element.prototype.scrollIntoView = spy;
+    Element.prototype.getBoundingClientRect = function () {
+      return this.classList.contains("a") ? rect(500, 100) : this.classList.contains("sh") ? rect(0, 300) : rect(0, 0);
+    };
     try {
-      render(<Ideas {...props({ query: { d: "1", s: "1" } })} />);
-      expect(spy).toHaveBeenCalledWith({ inline: "center", block: "nearest" });
+      const { container } = render(<Ideas {...props({ query: { d: "1", s: "1" } })} />);
+      const scrollers = container.querySelectorAll(".sh");
+      expect(scrollers).toHaveLength(2);
+      for (const box of scrollers) expect(box.scrollLeft).toBe(400);
+      expect(spy).not.toHaveBeenCalled();
     } finally {
+      Element.prototype.getBoundingClientRect = original;
       delete Element.prototype.scrollIntoView;
     }
   });

@@ -208,11 +208,12 @@ test.describe("Group 1: first time and first week", () => {
     await newcomer(page);
     await page.getByRole("button", { name: "Skip to the full assessment" }).click();
     await expect(page).toHaveURL(/#\/assess$/);
-    await expect(page.getByText("Pick a domain to start.")).toBeVisible();
+    // Nothing is rated yet, so it opens on the first domain.
+    const body = byId(1);
+    await expect(page.locator(".dp.a")).toContainText("Body & Vitality");
+    await expect(page.getByRole("slider", { name: `${body.subs[0].name} score` })).toBeVisible();
     await shot(page, testInfo, "S04", "1-assess");
 
-    await page.getByRole("button", { name: /^Body & Vitality/ }).click();
-    const body = byId(1);
     const values = [7, 3, 6, 5, 8, 9, 4, 6, 7, 5].slice(0, body.subs.length);
     for (let i = 0; i < body.subs.length; i++) {
       await rate(page, `${body.subs[i].name} score`, values[i]);
@@ -440,7 +441,7 @@ test.describe("Group 1: first time and first week", () => {
     // Assess.
     await go(page, "/assess");
     await expect(page.getByText("How are you, really?")).toBeVisible();
-    await expect(page.getByText("Pick a domain to start.")).toBeVisible();
+    await expect(page.locator(".dp.a")).toContainText("Body & Vitality");
     await expect(banner).toBeVisible();
     await shot(page, testInfo, "S08", "4-assess");
     // The tab bar still shows Today for a newcomer; it bounces to the welcome.

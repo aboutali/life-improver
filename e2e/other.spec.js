@@ -557,6 +557,43 @@ test("S25: keyboard-only user completes the loop", async ({ page }, testInfo) =>
   expectNoErrors();
 });
 
+// ---------- S25b ----------
+
+test("S25b: a Tab right after a route change is not undone by the late focus move", async ({ page }) => {
+  const { expectNoErrors } = trackErrors(page);
+  await freezeAt(page);
+  await seed(page, {});
+  // A slow frame, as on a loaded phone or CI runner: the app's own move of focus to
+  // the new heading arrives well after the person has already pressed Tab.
+  await page.addInitScript(() => {
+    const raf = window.requestAnimationFrame.bind(window);
+    window.__lateFrames = 0;
+    window.requestAnimationFrame = (cb) =>
+      raf(() =>
+        setTimeout(() => {
+          cb(performance.now());
+          window.__lateFrames++;
+        }, 400)
+      );
+  });
+  await go(page, "/");
+  await expect(page).toHaveURL(/#\/welcome$/);
+  await page.getByRole("button", { name: "Begin" }).focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("heading", { name: "How does each ground feel?" })).toBeFocused();
+  const lateFrames = () => page.evaluate(() => window.__lateFrames);
+  const before = await lateFrames();
+  for (let i = 0; i < 4; i++) {
+    await page.keyboard.press("Tab");
+    // The first Tab lands before the late frame. Let it run, then check focus held.
+    if (i === 0) await page.waitForFunction((n) => window.__lateFrames > n, before);
+    await expect(page.getByRole("slider").nth(i)).toBeFocused();
+    await page.keyboard.press("ArrowRight");
+  }
+  await expect(page.getByText("4 of 7 rated.")).toBeVisible();
+  expectNoErrors();
+});
+
 // ---------- S26 ----------
 
 async function audit(page) {
@@ -765,8 +802,10 @@ test("S28: Framework and Sources link to related practices", async ({ page }, te
   const mapped = await main.getByText(/Referenced in .* practices/i).count();
 
   // The old query form is still ignored.
+  // It opens on this week's focus (Body & Vitality, Sleep & Recovery) instead.
   await go(page, "/practices?domain=1&sub=2");
-  await expect(page.getByText("Pick a domain.")).toBeVisible();
+  await expect(page.locator(".dp.a")).toHaveText("Body & Vitality");
+  await expect(page.locator(".sp.a")).toHaveText(subOf(1, 2).name);
 
   friction(
     testInfo,
@@ -898,14 +937,21 @@ test("S50: Practices deep link ?d=&s= selects the domain and sub", async ({ page
     await expect(page.locator(".sp.a")).toHaveText(subOf(2, 0).name);
   }
 
-  // An unknown domain, or the old parameter names, show the plain picker.
-  for (const q of ["d=99&s=1", "domain=1&sub=2"]) {
-    await go(page, "/practices?" + q);
+  // An unknown domain, the old parameter names, or no query: the screen opens on
+  // this week's focus (domain 1, sub 2) and does not write the address.
+  for (const q of ["d=99&s=1", "domain=1&sub=2", ""]) {
+    await go(page, "/practices" + (q ? "?" + q : ""));
     await page.reload(); // a fresh visit: an open screen keeps its earlier selection
-    await expect(page.getByText("Pick a domain.")).toBeVisible();
-    await expect(page.locator(".dp.a")).toHaveCount(0);
+    await expect(page.locator(".dp.a")).toHaveText("Body & Vitality");
+    await expect(page.locator(".sp.a")).toHaveText(subOf(1, 2).name);
+    await expect(page.locator(".ir")).toHaveCount(subOf(1, 2).ideas.length);
+    expect(page.url().endsWith(q ? "#/practices?" + q : "#/practices")).toBe(true);
   }
   await shot(page, testInfo, "S50", "unknown-domain");
+
+  // A manual pick still replaces the address.
+  await page.getByRole("button", { name: "Mind & Learning" }).click();
+  await expect(page).toHaveURL(/#\/practices\?d=2&s=0$/);
 
   // The last domain on a phone sits in a horizontal scroller.
   await go(page, "/practices?d=7&s=3");
@@ -1019,6 +1065,9 @@ test("S52: Assess 'Make this my focus' plants a sub and goes to Today", async ({
     scores: { "1-2": 4, "4-1": 3, "7-3": 2 },
   });
   await go(page, "/assess");
+  // Assess opens on the focus domain with its sliders showing.
+  await expect(page.locator(".dp.a")).toContainText("Body & Vitality");
+  await expect(page.getByRole("slider", { name: "Sleep & Recovery score" })).toBeVisible();
   await expect(page.getByText("Focus here")).toBeVisible();
   await shot(page, testInfo, "S52", "assess");
 
@@ -1119,13 +1168,13 @@ test("S54: Sources leads on to the practices", async ({ page }, testInfo) => {
 
   await link.click();
   await expect(page).toHaveURL(/#\/practices$/);
-  await expect(page.getByText("Pick a domain.")).toBeVisible();
+  await expect(page.locator(".dp.a")).toHaveText("Body & Vitality");
   await expect(page.getByRole("heading", { name: /ways forward/ })).toBeFocused();
   await shot(page, testInfo, "S54", "practices");
 
   friction(
     testInfo,
-    "The link goes to the bare Practices screen ('Pick a domain.'), while each source note names the sub it supports ('Referenced in Sleep & Recovery practices'). A person reading about one source cannot jump to that sub's list."
+    "The link goes to the bare Practices screen (it opens on the current focus), while each source note names the sub it supports ('Referenced in Sleep & Recovery practices'). A person reading about one source cannot jump to that sub's list."
   );
   expectNoErrors();
 });

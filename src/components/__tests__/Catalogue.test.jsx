@@ -57,6 +57,45 @@ describe("SelfAssessment", () => {
   });
 });
 
+describe("SelfAssessment default domain", () => {
+  const renderWith = (map, focusValue = null) =>
+    render(
+      <SelfAssessment
+        scores={scoresStub(map)}
+        focus={{ focus: focusValue, setFocus: vi.fn() }}
+        checkins={{ checkins: [] }}
+        navigate={vi.fn()}
+      />
+    );
+  const active = () => document.querySelector(".dp.a");
+
+  it("opens on the focus domain", () => {
+    const d = FRAMEWORK[3];
+    renderWith(lowMap, { domainId: d.id, subIndex: 0, practiceIndex: 0, startedAt: toLocalDate(), skipped: [] });
+    expect(active()).toHaveTextContent(d.domain);
+    expect(screen.getByRole("slider", { name: `${d.subs[0].name} score` })).toBeInTheDocument();
+  });
+
+  it("without a focus, opens on the first domain that has an unrated sub", () => {
+    const full = Object.fromEntries(FRAMEWORK[0].subs.map((_, si) => [`${FRAMEWORK[0].id}-${si}`, 5]));
+    renderWith(full);
+    expect(active()).toHaveTextContent(FRAMEWORK[1].domain);
+  });
+
+  it("with everything rated and no focus, opens on the first domain", () => {
+    const all = {};
+    for (const d of FRAMEWORK) d.subs.forEach((_, si) => (all[`${d.id}-${si}`] = 5));
+    renderWith(all);
+    expect(active()).toHaveTextContent(FRAMEWORK[0].domain);
+  });
+
+  it("shows no empty-state card", () => {
+    renderWith({});
+    expect(screen.queryByText("Pick a domain to start.")).toBeNull();
+    expect(active()).toHaveTextContent(FRAMEWORK[0].domain);
+  });
+});
+
 describe("Overview", () => {
   it("has an h2 title and accordion buttons", async () => {
     render(<Overview />);

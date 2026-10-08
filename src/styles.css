@@ -652,8 +652,6 @@ main h2[tabindex="-1"]:focus { outline: none; }
 .cat-title:focus { outline: none; }
 .cat-intro { max-width: 600px; margin-bottom: var(--s3); }
 .cat-count { margin-bottom: var(--s1); }
-.cat-empty { text-align: center; padding: var(--s7) var(--s5); }
-.cat-empty .t-sub { margin-top: var(--s2); }
 .cat-subhead { margin: var(--s2) 0 var(--s4); }
 .cat-subhead .t-sub { margin-top: var(--s1); }
 .cat-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }

@@ -20,8 +20,15 @@ const TIERS = [
 ];
 
 export default function SelfAssessment({ scores, focus, checkins, navigate }) {
-  const [domIdx, setDomIdx] = useState(null);
-  const dom = domIdx !== null ? FRAMEWORK[domIdx] : null;
+  // Opens on this week's focus domain, else the first domain with an unrated
+  // sub, else the first. Fixed on arrival so rating the last sub does not move the screen.
+  const [domIdx, setDomIdx] = useState(() => {
+    const inFocus = FRAMEWORK.findIndex((d) => d.id === focus?.focus?.domainId);
+    if (inFocus >= 0) return inFocus;
+    const unrated = FRAMEWORK.findIndex((d) => d.subs.some((_, si) => !scores.get(d.id, si)));
+    return unrated >= 0 ? unrated : 0;
+  });
+  const dom = FRAMEWORK[domIdx];
 
   return (
     <div>
@@ -48,69 +55,60 @@ export default function SelfAssessment({ scores, focus, checkins, navigate }) {
       </div>
 
       <div>
-        {domIdx === null ? (
-          <div className="cd cat-empty">
-            <p className="t-title">Pick a domain to start.</p>
-            <p className="t-sub">Choose any of the seven above. Rate it honestly. Repeat.</p>
-          </div>
-        ) : (
-          <>
-            <div className="cat-subhead">
-              <p className="t-title">{dom.domain}</p>
-              <p className="t-sub">{dom.desc.split(".").slice(0, 2).join(".") + "."}</p>
-            </div>
+        <div className="cat-subhead">
+          <p className="t-title">{dom.domain}</p>
+          <p className="t-sub">{dom.desc.split(".").slice(0, 2).join(".") + "."}</p>
+        </div>
 
-            <div className="cd cat-legend">
-              <p className="t-eyebrow">How to rate</p>
-              <ul className="cat-tiers">
-                {TIERS.map((t) => (
-                  <li key={t.name}>
-                    <span className="cat-dot" style={{ background: t.color }} />
-                    <span className="t-foot">
-                      <strong className="cat-tier-name">{t.name} · {t.range}</strong> — {t.desc}
+        <div className="cd cat-legend">
+          <p className="t-eyebrow">How to rate</p>
+          <ul className="cat-tiers">
+            {TIERS.map((t) => (
+              <li key={t.name}>
+                <span className="cat-dot" style={{ background: t.color }} />
+                <span className="t-foot">
+                  <strong className="cat-tier-name">{t.name} · {t.range}</strong> — {t.desc}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {dom.subs.map((s, si) => {
+          const sc = scores.get(dom.id, si);
+          const color = sc ? tierColor(sc) : null;
+          const label = sc ? tierLabel(sc) : null;
+          return (
+            <div key={si} className="cd cat-rate">
+              <p className="t-head">{s.name}</p>
+              <p className="t-foot">{s.desc}</p>
+              <input
+                type="range"
+                min="1"
+                max="10"
+                value={sc || 5}
+                className={`slider${sc ? "" : " unset"}`}
+                style={{ "--tier": color || "var(--text-3)", "--pct": `${(((sc || 5) - 1) / 9) * 100}%` }}
+                aria-label={`${s.name} score`}
+                aria-valuetext={sc ? `${sc} — ${label}` : "unscored"}
+                onChange={(e) => scores.set(dom.id, si, Number(e.target.value))}
+              />
+              <div className="cat-readout">
+                {sc ? (
+                  <>
+                    <span className="cat-pill" style={{ background: color + "22" }}>
+                      <span className="cat-dot" style={{ background: color }} />
+                      {label}
                     </span>
-                  </li>
-                ))}
-              </ul>
+                    <span className="cat-score sf">{sc}</span>
+                  </>
+                ) : (
+                  <span className="cat-pill cat-pill-idle">Drag to rate</span>
+                )}
+              </div>
             </div>
-
-            {dom.subs.map((s, si) => {
-              const sc = scores.get(dom.id, si);
-              const color = sc ? tierColor(sc) : null;
-              const label = sc ? tierLabel(sc) : null;
-              return (
-                <div key={si} className="cd cat-rate">
-                  <p className="t-head">{s.name}</p>
-                  <p className="t-foot">{s.desc}</p>
-                  <input
-                    type="range"
-                    min="1"
-                    max="10"
-                    value={sc || 5}
-                    className={`slider${sc ? "" : " unset"}`}
-                    style={{ "--tier": color || "var(--text-3)", "--pct": `${(((sc || 5) - 1) / 9) * 100}%` }}
-                    aria-label={`${s.name} score`}
-                    aria-valuetext={sc ? `${sc} — ${label}` : "unscored"}
-                    onChange={(e) => scores.set(dom.id, si, Number(e.target.value))}
-                  />
-                  <div className="cat-readout">
-                    {sc ? (
-                      <>
-                        <span className="cat-pill" style={{ background: color + "22" }}>
-                          <span className="cat-dot" style={{ background: color }} />
-                          {label}
-                        </span>
-                        <span className="cat-score sf">{sc}</span>
-                      </>
-                    ) : (
-                      <span className="cat-pill cat-pill-idle">Drag to rate</span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </>
-        )}
+          );
+        })}
 
         {scores.scoredCount > 0 && <Dashboard scores={scores} focus={focus} checkins={checkins} navigate={navigate} />}
       </div>

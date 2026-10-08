@@ -14,10 +14,20 @@ function fromQuery(query) {
   return { domIdx, subIdx };
 }
 
+// The current focus as a selection, or null when there is none (or it is stale).
+function fromFocus(current) {
+  if (!current) return null;
+  const domIdx = FRAMEWORK.findIndex((d) => d.id === current.domainId);
+  if (domIdx < 0 || !FRAMEWORK[domIdx].subs[current.subIndex]) return null;
+  return { domIdx, subIdx: current.subIndex };
+}
+
 export default function Ideas({ focus, checkins, navigate, query }) {
-  const initial = fromQuery(query);
-  const [domIdx, setDomIdx] = useState(initial ? initial.domIdx : null);
-  const [subIdx, setSubIdx] = useState(initial ? initial.subIdx : 0);
+  const current = focus?.focus || null;
+  // What the person chose, by link or by tapping. Until then the screen opens on
+  // this week's focus, or on the first domain; the address is left alone.
+  const [chosen, setChosen] = useState(() => fromQuery(query));
+  const { domIdx, subIdx } = chosen || fromFocus(current) || { domIdx: 0, subIdx: 0 };
 
   // A link to another sub while this screen is open moves the selection.
   // Adjusted during render (not in an effect) when the query changes.
@@ -26,34 +36,35 @@ export default function Ideas({ focus, checkins, navigate, query }) {
   if (seenKey !== queryKey) {
     setSeenKey(queryKey);
     const next = fromQuery(query);
-    if (next) {
-      setDomIdx(next.domIdx);
-      setSubIdx(next.subIdx);
-    }
+    if (next) setChosen(next);
   }
 
-  const dom = domIdx !== null ? FRAMEWORK[domIdx] : null;
-  const sub = dom ? dom.subs[subIdx] : null;
+  const dom = FRAMEWORK[domIdx];
+  const sub = dom.subs[subIdx];
 
   // P5: keep the chosen domain and sub pills in view on a narrow screen.
   const rootRef = useRef(null);
   useEffect(() => {
     const root = rootRef.current;
     if (!root) return;
+    // Centre each active pill in its own scroller. scrollIntoView would also move
+    // the keyboard's starting point, so Tab after a load would skip the skip link.
     for (const el of root.querySelectorAll(".dp.a, .sp.a")) {
-      if (typeof el.scrollIntoView === "function") el.scrollIntoView({ inline: "center", block: "nearest" });
+      const box = el.parentElement;
+      if (!box) continue;
+      const a = el.getBoundingClientRect();
+      const b = box.getBoundingClientRect();
+      box.scrollLeft += a.left + a.width / 2 - (b.left + b.width / 2);
     }
   }, [domIdx, subIdx]);
 
   // P5: a manual choice updates the address, so a reload or a shared link keeps it.
   const choose = (nextDom, nextSub) => {
     if (nextDom === domIdx && nextSub === subIdx) return;
-    setDomIdx(nextDom);
-    setSubIdx(nextSub);
+    setChosen({ domIdx: nextDom, subIdx: nextSub });
     navigate?.(`/practices?d=${FRAMEWORK[nextDom].id}&s=${nextSub}`, { replace: true, quiet: true });
   };
 
-  const current = focus?.focus || null;
   const adopt = (practiceIndex) => {
     if (current && current.domainId === dom.id && current.subIndex === subIdx) {
       // P2: the same sub keeps its clock, review and nudge choice; only the practice changes.
@@ -94,56 +105,47 @@ export default function Ideas({ focus, checkins, navigate, query }) {
         ))}
       </div>
 
-      {domIdx === null ? (
-        <div className="cd cat-empty">
-          <p className="t-title">Pick a domain.</p>
-          <p className="t-sub">Each one holds dozens of practices, drawn from research and tradition.</p>
-        </div>
-      ) : (
-        <>
-          <div className="sh cat-chips">
-            {dom.subs.map((s, si) => (
-              <button
-                key={si}
-                className={`sp ${subIdx === si ? "a" : ""}`}
-                onClick={() => choose(domIdx, si)}
-              >
-                {s.name}
-              </button>
-            ))}
-          </div>
+      <div className="sh cat-chips">
+        {dom.subs.map((s, si) => (
+          <button
+            key={si}
+            className={`sp ${subIdx === si ? "a" : ""}`}
+            onClick={() => choose(domIdx, si)}
+          >
+            {s.name}
+          </button>
+        ))}
+      </div>
 
-          <div className="cat-subhead">
-            <p className="t-title">{sub.name}</p>
-            <p className="t-sub">{sub.desc}</p>
-          </div>
+      <div className="cat-subhead">
+        <p className="t-title">{sub.name}</p>
+        <p className="t-sub">{sub.desc}</p>
+      </div>
 
-          <div className="list">
-            {sub.ideas.map((idea, i) => {
-              const isCurrent =
-                current && current.domainId === dom.id && current.subIndex === subIdx && current.practiceIndex === i;
-              return (
-                <div key={i} className="ir cat-row">
-                  <span className="cat-num">{String(i + 1).padStart(2, "0")}</span>
-                  <span className="cat-text">{idea}</span>
-                  {isCurrent ? (
-                    <span className="cat-tag">This week</span>
-                  ) : (
-                    <button
-                      type="button"
-                      className="cat-act"
-                      aria-label={`Practise this week: ${idea}`}
-                      onClick={() => adopt(i)}
-                    >
-                      Practise this week
-                    </button>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </>
-      )}
+      <div className="list">
+        {sub.ideas.map((idea, i) => {
+          const isCurrent =
+            current && current.domainId === dom.id && current.subIndex === subIdx && current.practiceIndex === i;
+          return (
+            <div key={i} className="ir cat-row">
+              <span className="cat-num">{String(i + 1).padStart(2, "0")}</span>
+              <span className="cat-text">{idea}</span>
+              {isCurrent ? (
+                <span className="cat-tag">This week</span>
+              ) : (
+                <button
+                  type="button"
+                  className="cat-act"
+                  aria-label={`Practise this week: ${idea}`}
+                  onClick={() => adopt(i)}
+                >
+                  Practise this week
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
