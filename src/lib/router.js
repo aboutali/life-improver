@@ -24,6 +24,16 @@ function parseHash(hash) {
   return p || "/";
 }
 
+// Query parameters after "?" in the hash, e.g. "#/practices?d=1&s=2".
+export function parseQuery(hash) {
+  const q = (hash || "").split("?")[1] || "";
+  return Object.fromEntries(new URLSearchParams(q));
+}
+
+function currentQuery() {
+  return typeof window === "undefined" ? {} : parseQuery(window.location.hash);
+}
+
 function currentPath() {
   return typeof window === "undefined" ? "/" : parseHash(window.location.hash);
 }
@@ -39,18 +49,25 @@ function scrollToTop() {
   }
 }
 
-const KNOWN = new Set(ROUTES.map((r) => r.path));
+const PATHS = new Set(ROUTES.map((r) => r.path));
+// Sub-steps of the welcome wizard, so Back moves between steps.
+export const WELCOME_STEPS = ["/welcome", "/welcome/rate", "/welcome/focus"];
+const KNOWN = { has: (p) => PATHS.has(p) || WELCOME_STEPS.includes(p) };
 
 // Unknown hashes resolve to Today ("/").
 export function normalisePath(path) {
   return KNOWN.has(path) ? path : "/";
 }
 
-// Returns { path, focusKey, navigate }. `focusKey` changes after every
+// Returns { path, query, focusKey, navigate }. `query` holds hash parameters. `focusKey` changes after every
 // user-driven hashchange (never on first load, never on a silent redirect) so
 // the app can move focus to the new screen's heading.
 export function useRoute() {
-  const [state, setState] = useState(() => ({ path: normalisePath(currentPath()), focusKey: 0 }));
+  const [state, setState] = useState(() => ({
+    path: normalisePath(currentPath()),
+    query: currentQuery(),
+    focusKey: 0,
+  }));
   const silent = useRef(false);
 
   useEffect(() => {
@@ -63,7 +80,11 @@ export function useRoute() {
       const quiet = silent.current;
       silent.current = false;
       const next = normalisePath(currentPath());
-      setState((prev) => ({ path: next, focusKey: quiet ? prev.focusKey : prev.focusKey + 1 }));
+      setState((prev) => ({
+        path: next,
+        query: currentQuery(),
+        focusKey: quiet ? prev.focusKey : prev.focusKey + 1,
+      }));
       if (!KNOWN.has(currentPath())) {
         silent.current = true;
         window.location.replace(href("/"));
@@ -86,5 +107,5 @@ export function useRoute() {
     }
   }, []);
 
-  return { path: state.path, focusKey: state.focusKey, navigate };
+  return { path: state.path, query: state.query, focusKey: state.focusKey, navigate };
 }

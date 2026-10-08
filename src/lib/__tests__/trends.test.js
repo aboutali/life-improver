@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { seriesFor, changeSinceFirst, hasCheckinThisWeek, weeksActive } from "../trends.js";
+import { seriesFor, changeSinceFirst, hasCheckinThisWeek, weeksActive, domainReading } from "../trends.js";
 
 const ck = (date, week, score, domainId = 1, subIndex = 0) => ({ date, week, score, domainId, subIndex });
 
@@ -77,5 +77,35 @@ describe("weeksActive", () => {
 
   it("is zero with no check-ins", () => {
     expect(weeksActive([])).toBe(0);
+  });
+});
+
+describe("domainReading (N7)", () => {
+  const domain = { id: 4, subs: [{}, {}, {}, {}, {}] };
+
+  it("uses the quick score when under half the subs are rated", () => {
+    expect(domainReading(domain, { "4-0": 8 }, { 4: 5 })).toEqual({
+      value: 5, source: "quick", rated: 1, total: 5, partial: true,
+    });
+  });
+  it("shows the partial average when there is no quick score", () => {
+    expect(domainReading(domain, { "4-0": 8 }, {})).toMatchObject({ value: 8, source: "full", partial: true });
+  });
+  it("uses the full average from half the subs up, still marked partial", () => {
+    const r = domainReading(domain, { "4-0": 8, "4-1": 6, "4-2": 4 }, { 4: 1 });
+    expect(r).toMatchObject({ value: 6, source: "full", rated: 3, partial: true });
+    expect(domainReading({ id: 4, subs: [{}, {}, {}, {}] }, { "4-0": 8, "4-1": 6 }, { 4: 1 })).toMatchObject({
+      value: 7, source: "full",
+    });
+  });
+  it("is not partial when every sub is rated", () => {
+    const all = Object.fromEntries([0, 1, 2, 3, 4].map((i) => [`4-${i}`, 6]));
+    expect(domainReading(domain, all, {})).toMatchObject({ value: 6, partial: false });
+  });
+  it("is empty with nothing rated", () => {
+    expect(domainReading(domain, {}, {})).toEqual({ value: null, source: null, rated: 0, total: 5, partial: false });
+  });
+  it("ignores scores for other domains", () => {
+    expect(domainReading(domain, { "5-0": 9 }, {}).rated).toBe(0);
   });
 });

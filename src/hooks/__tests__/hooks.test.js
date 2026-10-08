@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { usePersistentState } from "../usePersistentState.js";
 import { useToday } from "../useToday.js";
@@ -7,7 +7,7 @@ import { useQuickScores } from "../useQuickScores.js";
 import { useFocus } from "../useFocus.js";
 import { useCheckins } from "../useCheckins.js";
 import { useScores } from "../useScores.js";
-import { KEYS } from "../../lib/storage.js";
+import { KEYS, getStorageStatus, resetStorageStatus } from "../../lib/storage.js";
 
 const stored = (key) => JSON.parse(localStorage.getItem(key));
 
@@ -225,5 +225,45 @@ describe("useToday", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe("usePersistentState damage handling", () => {
+  beforeEach(() => resetStorageStatus());
+
+  it("copies unparsable text to :bad once, falls back, and reports the key", () => {
+    localStorage.setItem("k", "{oops");
+    const { result } = renderHook(() => usePersistentState("k", { a: 1 }));
+    expect(result.current[0]).toEqual({ a: 1 });
+    expect(localStorage.getItem("k:bad")).toBe("{oops");
+    expect(getStorageStatus().damaged).toContain("k");
+    // The backup is written once: a later damaged value does not replace it.
+    localStorage.setItem("k", "{again");
+    renderHook(() => usePersistentState("k", { a: 1 }));
+    expect(localStorage.getItem("k:bad")).toBe("{oops");
+  });
+
+  it("reports a key whose value a sanitizer trimmed", () => {
+    localStorage.setItem(KEYS.checkins, JSON.stringify([{ nope: true }]));
+    const { result } = renderHook(() => useCheckins());
+    expect(result.current.checkins).toEqual([]);
+    expect(getStorageStatus().damaged).toEqual([KEYS.checkins]);
+    expect(localStorage.getItem(`${KEYS.checkins}:bad`)).not.toBeNull();
+  });
+
+  it("leaves clean data unreported", () => {
+    localStorage.setItem(KEYS.quick, JSON.stringify({ 1: 4 }));
+    renderHook(() => useQuickScores());
+    expect(getStorageStatus().damaged).toEqual([]);
+  });
+
+  it("marks saving off when a write throws", () => {
+    getStorageStatus();
+    const spy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    renderHook(() => usePersistentState("k2", 1));
+    spy.mockRestore();
+    expect(getStorageStatus().available).toBe(false);
   });
 });

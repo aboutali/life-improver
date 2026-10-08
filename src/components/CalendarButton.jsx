@@ -1,27 +1,24 @@
 import { useId, useState } from "react";
 import { downloadIcs } from "../lib/ics.js";
+import { nextOccurrence, firstOneLabel } from "../lib/rhythm.js";
+import { Chevron } from "./TodayIcons.jsx";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
-// The next moment that falls on `day` (0 = Sunday) at "HH:MM" local time,
-// strictly after `now`.
-function nextOccurrence(day, time, now = new Date()) {
-  const [h, m] = time.split(":").map(Number);
-  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h || 0, m || 0, 0, 0);
-  start.setDate(start.getDate() + ((day - now.getDay() + 7) % 7));
-  if (start.getTime() <= now.getTime()) start.setDate(start.getDate() + 7);
-  return start;
-}
-
 // A button that opens a small day-and-time picker, then downloads a weekly
-// .ics event. `buildIcs(start: Date)` returns the calendar text.
+// .ics event. `buildIcs(start: Date)` returns the calendar text. The panel says
+// when the first one falls. `minDaysAhead` keeps it at least that many days
+// after today.
 export default function CalendarButton({
   label,
   buildIcs,
   filename,
   defaultDay = 0,
   defaultTime = "18:00",
-  triggerClassName = "btn btn-tap",
+  minDaysAhead = 0,
+  triggerClassName = "btn",
+  icon = null,
+  chevron = false,
   defaultOpen = false,
   showTrigger = true,
 }) {
@@ -32,7 +29,7 @@ export default function CalendarButton({
   const [done, setDone] = useState(false);
 
   const add = () => {
-    const start = nextOccurrence(day, time || defaultTime);
+    const start = nextOccurrence(day, time || defaultTime, { minDaysAhead });
     downloadIcs(filename, buildIcs(start));
     setDone(true);
   };
@@ -47,7 +44,9 @@ export default function CalendarButton({
           aria-controls={`${uid}-panel`}
           onClick={() => setOpen((o) => !o)}
         >
-          {label}
+          {icon}
+          <span>{label}</span>
+          {chevron && <Chevron />}
         </button>
       )}
       {open && (
@@ -77,7 +76,10 @@ export default function CalendarButton({
               />
             </label>
           </div>
-          <button type="button" className="btn btn-tap" onClick={add}>
+          <p className="cal-first">
+            {firstOneLabel({ day, time: time || defaultTime, minDaysAhead })}
+          </p>
+          <button type="button" className="btn btn-block" onClick={add}>
             Download calendar file
           </button>
           <p className="cal-note" role="status">

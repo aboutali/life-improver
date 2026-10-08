@@ -8,14 +8,14 @@ const ICON_PROPS = {
   viewBox: "0 0 24 24",
   fill: "none",
   stroke: "currentColor",
-  strokeWidth: 1.5,
+  strokeWidth: 1.6,
   strokeLinecap: "round",
   strokeLinejoin: "round",
   "aria-hidden": "true",
   focusable: "false",
 };
 
-// Simple 1.5px stroke icons: sun, line chart, sliders, list.
+// Simple 1.6px stroke icons: sun, line chart, sliders, list.
 const ICONS = {
   "/": (
     <svg {...ICON_PROPS}>
@@ -48,15 +48,19 @@ const ICONS = {
 
 const BOTTOM = TABS.filter((t) => ICONS[t.path]);
 
+// Flows and pushed screens have no bottom tab bar on a phone. The top tabs
+// (wide screens only) stay on Check-in and Settings.
+const NO_BOTTOM = new Set(["/checkin", "/settings"]);
+
 export default function TabBar({ path }) {
   // The welcome screen is a one-time flow: no navigation there.
-  if (path === "/welcome") return null;
+  if (path === "/welcome" || path.startsWith("/welcome/")) return null;
 
   return (
     <>
-      <nav className="topnav" aria-label="Main" style={{ background: "#fff", borderBottom: "1px solid #D5D5D5", position: "sticky", top: 0, zIndex: 10 }}>
-        <div style={{ maxWidth: 960, margin: "0 auto", padding: "0 24px" }}>
-          <div className="tabbar" style={{ borderBottom: "none" }}>
+      <nav className="topnav" aria-label="Main">
+        <div className="topnav-in">
+          <div className="tabbar">
             {TABS.map((t) => {
               const active = t.path === path;
               return (
@@ -74,22 +78,24 @@ export default function TabBar({ path }) {
         </div>
       </nav>
 
-      <nav className="bnav" aria-label="Primary">
-        {BOTTOM.map((t) => {
-          const active = t.path === path;
-          return (
-            <a
-              key={t.path}
-              href={href(t.path)}
-              className={`bn ${active ? "a" : ""}`}
-              aria-current={active ? "page" : undefined}
-            >
-              {ICONS[t.path]}
-              <span>{t.label}</span>
-            </a>
-          );
-        })}
-      </nav>
+      {!NO_BOTTOM.has(path) && (
+        <nav className="bnav" aria-label="Primary">
+          {BOTTOM.map((t) => {
+            const active = t.path === path;
+            return (
+              <a
+                key={t.path}
+                href={href(t.path)}
+                className={`bn ${active ? "a" : ""}`}
+                aria-current={active ? "page" : undefined}
+              >
+                {ICONS[t.path]}
+                <span>{t.label}</span>
+              </a>
+            );
+          })}
+        </nav>
+      )}
     </>
   );
 }

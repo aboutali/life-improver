@@ -46,3 +46,17 @@ describe("useRoute", () => {
     expect(result.current.focusKey).toBe(1);
   });
 });
+
+import { parseQuery, normalisePath as np2 } from "../router.js";
+
+describe("router query and welcome steps", () => {
+  it("parses hash query parameters", () => {
+    expect(parseQuery("#/practices?d=1&s=2")).toEqual({ d: "1", s: "2" });
+    expect(parseQuery("#/practices")).toEqual({});
+  });
+  it("keeps welcome sub-steps", () => {
+    expect(np2("/welcome/rate")).toBe("/welcome/rate");
+    expect(np2("/welcome/focus")).toBe("/welcome/focus");
+    expect(np2("/welcome/other")).toBe("/");
+  });
+});

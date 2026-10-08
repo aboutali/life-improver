@@ -8,11 +8,10 @@ describe("Sparkline", () => {
     expect(container.querySelector("svg")).toBeNull();
   });
 
-  it("renders a single point as a dot with no line", () => {
+  it("says the line starts here for a single point, with no SVG", () => {
     const { container } = render(<Sparkline series={[{ date: "2026-10-07", score: 5 }]} />);
-    expect(container.querySelectorAll("circle")).toHaveLength(1);
-    expect(container.querySelector("polyline")).toBeNull();
-    expect(screen.getByRole("img")).toHaveAccessibleName(/5 out of 10 on Oct 7/);
+    expect(container.querySelector("svg")).toBeNull();
+    expect(screen.getByText("Your line starts here.")).toBeInTheDocument();
   });
 
   it("summarises first and latest score and draws a line", () => {

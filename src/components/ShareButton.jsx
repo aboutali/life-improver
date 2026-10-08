@@ -36,28 +36,27 @@ export default function ShareButton({ domains, overall }) {
 
   return (
     <div className="share">
-      <div className="share-row">
-        <label className="share-check" htmlFor={checkId}>
-          <input
-            id={checkId}
-            type="checkbox"
-            checked={hideScores}
-            onChange={(e) => setHideScores(e.target.checked)}
-          />
-          <span>Hide numbers</span>
-        </label>
-        <button
-          type="button"
-          className="btn btn-primary share-btn"
-          onClick={onShare}
-          disabled={busy}
-          aria-busy={busy}
-        >
-          {busy ? "Preparing image…" : "Share image"}
-        </button>
-      </div>
-      <p className="share-msg" role="status">{failed ? "" : message}</p>
-      <p className="share-msg" role="alert" style={{ color: "#C53030" }}>{failed ? message : ""}</p>
+      <label className="share-check" htmlFor={checkId}>
+        <span className="t-head">Hide numbers</span>
+        <input
+          id={checkId}
+          className="switch"
+          type="checkbox"
+          checked={hideScores}
+          onChange={(e) => setHideScores(e.target.checked)}
+        />
+      </label>
+      <button
+        type="button"
+        className="btn btn-block share-btn"
+        onClick={onShare}
+        disabled={busy}
+        aria-busy={busy}
+      >
+        {busy ? "Preparing image…" : "Share image"}
+      </button>
+      <p className="share-msg t-foot" role="status">{failed ? "" : message}</p>
+      <p className="share-msg share-err t-foot" role="alert">{failed ? message : ""}</p>
     </div>
   );
 }

@@ -11,6 +11,94 @@ export const KEYS = {
 const APP = "life-improver";
 const SCHEMA = 2;
 
+// ---- Storage status registry ------------------------------------------
+// Module-level, read through getStorageStatus(). `available` is false when a
+// test write failed at startup or any later setItem threw. `damaged` lists the
+// keys whose stored value failed to parse, or was dropped or trimmed by a
+// sanitizer, this session. Raw copies are also held in memory, so a damaged
+// copy can be downloaded even when storage refuses the `:bad` backup.
+let detected = false;
+let available = true;
+const damagedKeys = new Set();
+const memoryBad = new Map();
+const listeners = new Set();
+let snapshot = null;
+
+function changed() {
+  snapshot = null;
+  listeners.forEach((fn) => fn());
+}
+
+// One test write and remove. Runs once; later calls do nothing.
+export function detectStorage(storage = typeof localStorage === "undefined" ? null : localStorage) {
+  if (detected) return available;
+  detected = true;
+  try {
+    const probe = `${APP}:probe`;
+    storage.setItem(probe, "1");
+    storage.removeItem(probe);
+    available = true;
+  } catch {
+    available = false;
+  }
+  changed();
+  return available;
+}
+
+export function markWriteFailed() {
+  detected = true;
+  if (available) {
+    available = false;
+    changed();
+  }
+}
+
+export function markDamaged(key, raw) {
+  if (typeof raw === "string" && !memoryBad.has(key)) memoryBad.set(key, raw);
+  if (!damagedKeys.has(key)) {
+    damagedKeys.add(key);
+    changed();
+  }
+}
+
+// { available, damaged }. The same object is returned until something changes,
+// so it is safe to use as a useSyncExternalStore snapshot.
+export function getStorageStatus() {
+  detectStorage();
+  if (!snapshot) snapshot = { available, damaged: [...damagedKeys] };
+  return snapshot;
+}
+
+export function subscribeStorageStatus(fn) {
+  listeners.add(fn);
+  return () => listeners.delete(fn);
+}
+
+// Test helper: forget everything the registry knows.
+export function resetStorageStatus() {
+  detected = false;
+  available = true;
+  damagedKeys.clear();
+  memoryBad.clear();
+  changed();
+}
+
+// The damaged copies kept this session or earlier: { "<key>": "<raw text>" }.
+export function readBadCopies(storage = typeof localStorage === "undefined" ? null : localStorage) {
+  const out = {};
+  for (const key of Object.values(KEYS)) {
+    const badKey = `${key}:bad`;
+    try {
+      const raw = storage && storage.getItem(badKey);
+      if (raw !== null && raw !== undefined) out[badKey] = raw;
+    } catch {
+      // Unreadable storage: fall through to the in-memory copy.
+    }
+    if (!(badKey in out) && memoryBad.has(key)) out[badKey] = memoryBad.get(key);
+  }
+  return out;
+}
+
 // What an empty value looks like for each exported key.
 const DEFAULTS = { scores: {}, quick: {}, focus: null, checkins: [] };
 const DATA_KEYS = Object.keys(DEFAULTS);
@@ -35,19 +123,74 @@ export function runMigrations(storage = localStorage) {
     }
   } catch {
     // Storage unavailable (private mode): the app runs in memory only.
+    markWriteFailed();
   }
 }
 
 // Snapshot of the user's data, ready to save as a JSON file. Values are the
 // sanitized ones the app itself uses, so an export always re-imports.
 export function exportData(storage = localStorage) {
+  const values = {};
+  for (const name of DATA_KEYS) values[name] = read(storage, KEYS[name], DEFAULTS[name]);
+  return buildExport(values);
+}
+
+// The same snapshot built from values already in memory ({ scores, quick,
+// focus, checkins }), so a copy can be saved when storage is blocked.
+export function buildExport(values = {}) {
   const data = {};
   for (const name of DATA_KEYS) {
-    const cleaned = SANITIZERS[name](read(storage, KEYS[name], DEFAULTS[name]));
+    const given = values[name] === undefined ? DEFAULTS[name] : values[name];
+    const cleaned = SANITIZERS[name](given);
     data[name] = cleaned === undefined ? DEFAULTS[name] : cleaned;
   }
   return { app: APP, schema: SCHEMA, exportedAt: new Date().toISOString(), data };
 }
+
+// ---- Welcome draft (sessionStorage) -------------------------------------
+export const DRAFT_KEY = `${APP}:draft`;
+
+// { quick: { domainId: 1..10 }, pick: { domainId, subIndex } | null }
+export function sanitizeDraft(v) {
+  const quick = {};
+  if (isObject(v) && isObject(v.quick)) {
+    for (const [k, val] of Object.entries(v.quick)) {
+      if (DOMAIN_KEY.test(k) && isScore(val)) quick[k] = val;
+    }
+  }
+  const p = isObject(v) ? v.pick : null;
+  const pick = isObject(p) && isIndex(p.domainId) && isIndex(p.subIndex)
+    ? { domainId: p.domainId, subIndex: p.subIndex }
+    : null;
+  return { quick, pick };
+}
+
+export function readDraft() {
+  try {
+    const raw = sessionStorage.getItem(DRAFT_KEY);
+    return sanitizeDraft(raw ? JSON.parse(raw) : null);
+  } catch {
+    return sanitizeDraft(null);
+  }
+}
+
+export function writeDraft(draft) {
+  try {
+    sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+  } catch {
+    // Session storage blocked: the draft lives in memory only.
+  }
+}
+
+export function clearDraft() {
+  try {
+    sessionStorage.removeItem(DRAFT_KEY);
+  } catch {
+    // Nothing to clear.
+  }
+}
+
+// What an empty value looks like for each exported key (continued).
 
 export const isObject = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
 export const isScore = (v) => Number.isInteger(v) && v >= 1 && v <= 10;
