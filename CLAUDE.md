@@ -39,6 +39,8 @@ CI (`.github/workflows/ci.yml`) runs lint, unit tests, build, and the e2e storie
 
 When a flow changes, update the matching story in `e2e/` and its row in `USER_STORIES.md` in the same change.
 
+**Quality suite.** `e2e/quality.spec.js` checks every route in light and dark against `docs/product/IOS_QUALITY.md`: axe contrast and accessibility (A1), 44 px touch targets (A3), the system UI font (L1), and no motion under Reduce Motion (M4). A1 runs in both Playwright projects. The others run in `mobile` only. The A2 test (text grows with the root font size) is `test.fixme` until the font tokens move from px to rem. Run it with `npx playwright test quality.spec.js`.
+
 ## Architecture
 
 Four layers, top-to-bottom:

@@ -8,16 +8,35 @@ export default defineConfig({
     VitePWA({
       registerType: "prompt",
       injectRegister: false, // main.jsx registers via virtual:pwa-register
-      includeAssets: ["icon.svg", "apple-touch-icon.png"],
+      includeAssets: ["icon.svg", "apple-touch-icon.png", "pwa-96.png"],
       manifest: {
+        id: "/life-improver/",
         name: "Life Improver",
         short_name: "Life",
         description: "A weekly loop for tending one part of your life at a time.",
         theme_color: "#F4F3EF",
         background_color: "#F4F3EF",
         display: "standalone",
+        display_override: ["standalone"],
+        categories: ["health", "lifestyle"],
         start_url: "/life-improver/",
         scope: "/life-improver/",
+        shortcuts: [
+          {
+            name: "Check in",
+            short_name: "Check in",
+            description: "Record this week's check-in",
+            url: "/life-improver/#/checkin",
+            icons: [{ src: "pwa-96.png", sizes: "96x96", type: "image/png" }],
+          },
+          {
+            name: "Journey",
+            short_name: "Journey",
+            description: "See your trend over time",
+            url: "/life-improver/#/journey",
+            icons: [{ src: "pwa-96.png", sizes: "96x96", type: "image/png" }],
+          },
+        ],
         icons: [
           { src: "pwa-192.png", sizes: "192x192", type: "image/png" },
           { src: "pwa-512.png", sizes: "512x512", type: "image/png" },
@@ -26,6 +45,7 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,svg,png,woff2}"],
+        globIgnores: ["splash/**"], // launch images are fetched by iOS itself
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.(?:googleapis|gstatic)\.com\/.*/i,
