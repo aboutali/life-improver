@@ -56,6 +56,7 @@ describe("Today", () => {
     render(<Harness navigate={vi.fn()} />);
     await userEvent.click(screen.getByRole("button", { name: "Swap practice" }));
     expect(screen.getByText(FRAMEWORK[0].subs[0].ideas[1])).toBeInTheDocument();
+    expect(await screen.findByText("New practice")).toBeInTheDocument();
   });
 
   it("offers Check in until one exists this week", async () => {
@@ -88,8 +89,12 @@ describe("Today", () => {
     await userEvent.click(screen.getByRole("button", { name: "Remind me weekly" }));
     expect(screen.getByLabelText("Day")).toHaveValue("0");
     expect(screen.getByLabelText("Time")).toHaveValue("18:00");
+    expect(screen.getByRole("dialog", { name: "Add a weekly check-in to my calendar" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Download calendar file" }));
     expect(downloadIcs).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(await screen.findByText("Added to calendar")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remind me weekly" })).toHaveFocus();
     const [name, text] = downloadIcs.mock.calls[0];
     expect(name).toMatch(/\.ics$/);
     expect(text).toContain("RRULE:FREQ=WEEKLY");
@@ -112,8 +117,10 @@ describe("Today", () => {
     seed("focus", focusValue);
     render(<Harness navigate={vi.fn()} />);
     await userEvent.click(screen.getByRole("button", { name: "Add to calendar" }));
+    expect(screen.getByRole("dialog", { name: "Add to calendar" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Download calendar file" }));
     expect(downloadIcs).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
   it("chooses another focus, moving focus into the picker and back out", async () => {
@@ -122,6 +129,7 @@ describe("Today", () => {
     render(<Harness navigate={vi.fn()} />);
     const trigger = screen.getByRole("button", { name: "Choose another focus" });
     await userEvent.click(trigger);
+    expect(screen.getByRole("dialog", { name: "Choose where to begin" })).toHaveAttribute("aria-modal", "true");
     expect(screen.getByRole("heading", { name: "Choose where to begin" })).toHaveFocus();
     await userEvent.click(screen.getByRole("button", { name: "Keep this focus" }));
     expect(screen.queryByRole("heading", { name: "Choose where to begin" })).not.toBeInTheDocument();
@@ -134,6 +142,7 @@ describe("Today", () => {
       domainId: 2, subIndex: 1, practiceIndex: 0, skipped: [], origin: "picked",
     });
     expect(screen.getByRole("button", { name: "Choose another focus" })).toHaveFocus();
+    expect(await screen.findByText("Focus set")).toBeInTheDocument();
   });
 
   it("shows garden values with one decimal, a quick tag and the focus row", () => {

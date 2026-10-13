@@ -2,12 +2,15 @@ import { useEffect, useId, useRef, useState } from "react";
 import { FRAMEWORK } from "../data/framework.js";
 import { pickerSuggestions } from "../lib/recommend.js";
 import { Chevron } from "./TodayIcons.jsx";
+import Sheet from "./Sheet.jsx";
 
 // Shared "choose where to begin" list, used by Today and Onboarding.
 // Two parts: "Suggested" (three subs from what has been rated) and "All areas"
 // (the seven domains as groups that open to every sub).
 // `scores` is the useScores return; `quickScores` is a plain { domainId: 1..10 } map.
 // `current` is { domainId, subIndex } or null; it is marked in both parts.
+// `inSheet` drops the heading (the sheet's title is the heading) and the focus
+// move (the sheet does that). Use FocusPickerSheet to show it as a sheet.
 export default function FocusPicker({
   scores,
   quickScores = {},
@@ -17,6 +20,7 @@ export default function FocusPicker({
   currentLabel = "Suggested",
   closeLabel = "Keep the suggestion",
   framework = FRAMEWORK,
+  inSheet = false,
 }) {
   const uid = useId();
   const headingRef = useRef(null);
@@ -25,8 +29,8 @@ export default function FocusPicker({
   // Opening the picker moves focus to its heading so keyboard and screen-reader
   // users land on the new content.
   useEffect(() => {
-    if (headingRef.current) headingRef.current.focus();
-  }, []);
+    if (!inSheet && headingRef.current) headingRef.current.focus();
+  }, [inSheet]);
 
   const scoreMap = scores.scores || {};
   const suggestions = pickerSuggestions({ scores: scoreMap, quick: quickScores, framework, current });
@@ -38,8 +42,14 @@ export default function FocusPicker({
   const toggle = (id) => setOpen((o) => (o.includes(id) ? o.filter((x) => x !== id) : [...o, id]));
 
   return (
-    <div className="fp" role="group" aria-labelledby={`${uid}-title`}>
-      <h3 id={`${uid}-title`} ref={headingRef} tabIndex={-1} className="t-title fp-title">Choose where to begin</h3>
+    <div
+      className={inSheet ? "fp fp-sheet" : "fp"}
+      role={inSheet ? undefined : "group"}
+      aria-labelledby={inSheet ? undefined : `${uid}-title`}
+    >
+      {!inSheet && (
+        <h3 id={`${uid}-title`} ref={headingRef} tabIndex={-1} className="t-title fp-title">Choose where to begin</h3>
+      )}
 
       {suggestions.length > 0 && (
         <section aria-labelledby={`${uid}-sug`}>
@@ -120,5 +130,17 @@ export default function FocusPicker({
         {closeLabel}
       </button>
     </div>
+  );
+}
+
+// The picker as a bottom sheet titled "Choose where to begin". Render it once
+// per screen, outside the cards, and drive it with `open`. Closing (button,
+// backdrop, drag or Escape) calls `onClose`; focus returns to the opener, or
+// to `returnFocusRef` if the opener has gone.
+export function FocusPickerSheet({ open, onClose, returnFocusRef, ...picker }) {
+  return (
+    <Sheet open={open} onClose={onClose} title="Choose where to begin" returnFocusRef={returnFocusRef}>
+      <FocusPicker {...picker} onClose={onClose} inSheet />
+    </Sheet>
   );
 }

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ROUTES, href } from "../lib/router.js";
+import { PARENT_OF } from "../lib/navMotion.js";
 
 // Moves focus to <main> without touching the hash, which would change the route.
 function skipToMain(e) {
@@ -12,12 +13,12 @@ function skipToMain(e) {
 // the Settings gear. `to` is the parent route; `label` is its visible name and
 // `name` the accessible name.
 const PARENT = {
-  "/checkin": { to: "/", label: "Today", name: "Back to Today" },
-  "/settings": { to: "/", label: "Today", name: "Back to Today" },
-  "/framework": { to: "/practices", label: "Practices", name: "Back to Practices" },
-  "/sources": { to: "/practices", label: "Practices", name: "Back to Practices" },
-  "/welcome/rate": { to: "/welcome", label: "Welcome", name: "Back to Welcome" },
-  "/welcome/focus": { to: "/welcome/rate", label: "Back", name: "Back to the ratings" },
+  "/checkin": { to: PARENT_OF["/checkin"], label: "Today", name: "Back to Today" },
+  "/settings": { to: PARENT_OF["/settings"], label: "Today", name: "Back to Today" },
+  "/framework": { to: PARENT_OF["/framework"], label: "Practices", name: "Back to Practices" },
+  "/sources": { to: PARENT_OF["/sources"], label: "Practices", name: "Back to Practices" },
+  "/welcome/rate": { to: PARENT_OF["/welcome/rate"], label: "Welcome", name: "Back to Welcome" },
+  "/welcome/focus": { to: PARENT_OF["/welcome/focus"], label: "Back", name: "Back to the ratings" },
 };
 
 function titleFor(path) {

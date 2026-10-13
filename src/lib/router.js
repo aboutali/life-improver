@@ -1,4 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
+import {
+  classifyNavigation,
+  createScrollMemory,
+  runNavTransition,
+  scrollTargetFor,
+  scrollToInstant,
+  scrollToTop,
+} from "./navMotion.js";
 
 // Hash router. GitHub Pages serves the app under a sub-path, so hashes avoid 404s.
 export const ROUTES = [
@@ -38,17 +47,6 @@ function currentPath() {
   return typeof window === "undefined" ? "/" : parseHash(window.location.hash);
 }
 
-function scrollToTop() {
-  const reduce =
-    typeof window.matchMedia === "function" &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  try {
-    window.scrollTo({ top: 0, left: 0, behavior: reduce ? "auto" : "smooth" });
-  } catch {
-    // jsdom and older browsers may not implement scrollTo.
-  }
-}
-
 const PATHS = new Set(ROUTES.map((r) => r.path));
 // Sub-steps of the welcome wizard, so Back moves between steps.
 export const WELCOME_STEPS = ["/welcome", "/welcome/rate", "/welcome/focus"];
@@ -69,8 +67,19 @@ export function useRoute() {
     focusKey: 0,
   }));
   const silent = useRef(false);
+  const active = useRef(state.path); // the path on screen, for scroll memory
+  const [memory] = useState(createScrollMemory);
 
   useEffect(() => {
+    // The router restores scroll itself, per tab (see navMotion.js).
+    try {
+      if ("scrollRestoration" in window.history) window.history.scrollRestoration = "manual";
+    } catch {
+      // Some embedded browsers forbid it.
+    }
+    const onScroll = () => memory.record(active.current, window.scrollY);
+    window.addEventListener("scroll", onScroll, { passive: true });
+
     // An unknown hash is replaced by "#/" so Back does not return to it.
     if (!KNOWN.has(currentPath())) {
       silent.current = true;
@@ -80,20 +89,39 @@ export function useRoute() {
       const quiet = silent.current;
       silent.current = false;
       const next = normalisePath(currentPath());
-      setState((prev) => ({
-        path: next,
-        query: currentQuery(),
-        focusKey: quiet ? prev.focusKey : prev.focusKey + 1,
-      }));
+      const query = currentQuery();
+      const from = active.current;
+      const kind = quiet ? "none" : classifyNavigation(from, next);
+      memory.record(from, window.scrollY);
+
+      // One synchronous update: state, then scroll. Inside a view transition it
+      // runs as the transition's callback, so the new screen is what gets captured.
+      const apply = () => {
+        flushSync(() =>
+          setState((prev) => ({
+            path: next,
+            query,
+            focusKey: quiet ? prev.focusKey : prev.focusKey + 1,
+          }))
+        );
+        active.current = next;
+        if (quiet) return;
+        if (kind === "none") scrollToTop();
+        else scrollToInstant(scrollTargetFor(kind, next, memory.all()));
+      };
+      if (!runNavTransition(kind, apply)) apply();
+
       if (!KNOWN.has(currentPath())) {
         silent.current = true;
         window.location.replace(href("/"));
       }
-      if (!quiet) scrollToTop();
     };
     window.addEventListener("hashchange", onChange);
-    return () => window.removeEventListener("hashchange", onChange);
-  }, []);
+    return () => {
+      window.removeEventListener("hashchange", onChange);
+      window.removeEventListener("scroll", onScroll);
+    };
+  }, [memory]);
 
   // navigate(path, { replace, quiet }): replace swaps the current history
   // entry, so a redirect does not trap the Back button. quiet skips the focus

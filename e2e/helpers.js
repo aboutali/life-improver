@@ -38,6 +38,13 @@ export async function readStore(page, name) {
 // Navigate inside the app by hash.
 export async function go(page, path = "/") {
   await page.goto("#" + path);
+  await transitionDone(page);
+}
+
+// While a route change slides in (a view transition, about 350ms) the page does
+// not take pointer events. Forced clicks would be lost, so wait for it to end.
+export async function transitionDone(page) {
+  await page.waitForFunction(() => !document.documentElement.dataset.nav);
 }
 
 // Collect uncaught errors; call expectNoErrors at the end of a test.

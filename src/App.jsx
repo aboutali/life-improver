@@ -17,6 +17,8 @@ import { useQuickScores } from "./hooks/useQuickScores.js";
 import { useFocus } from "./hooks/useFocus.js";
 import { useCheckins } from "./hooks/useCheckins.js";
 import { useRoute, href } from "./lib/router.js";
+import { PARENT_OF, isPushed } from "./lib/navMotion.js";
+import { useSwipeBack } from "./hooks/useSwipeBack.js";
 import { buildExport } from "./lib/storage.js";
 import { saveJson } from "./lib/download.js";
 import { toLocalDate } from "./lib/dates.js";
@@ -65,6 +67,9 @@ export default function App() {
     });
     return () => cancelAnimationFrame(frame);
   }, [focusKey]);
+
+  // Installed app only: swipe from the left edge to go back on a pushed screen.
+  useSwipeBack({ enabled: isPushed(path), path, targetRef: mainRef, onBack: () => go(PARENT_OF[path]) });
 
   const shared = { scores, quick, focus, checkins, navigate };
 

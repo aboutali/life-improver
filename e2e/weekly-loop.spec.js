@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { freezeAt, seed, go, readStore, trackErrors, friction, RETURNING, expectJourneyStat } from "./helpers.js";
+import { freezeAt, seed, go, transitionDone, readStore, trackErrors, friction, RETURNING, expectJourneyStat } from "./helpers.js";
 import { isoWeek } from "../src/lib/dates.js";
 import { FRAMEWORK } from "../src/data/framework.js";
 
@@ -42,6 +42,7 @@ const QUICK = { 1: 4, 2: 7, 3: 6, 4: 8, 5: 5, 6: 6, 7: 7 };
 
 // Fill the check-in form. The score is never pre-filled (R5); `score` null skips it.
 async function fillCheckin(page, { practised, score, note }) {
+  await transitionDone(page); // forced clicks are lost while the screen slides in
   await page.getByRole("radio", { name: practised, exact: true }).check({ force: true });
   if (score != null) await page.getByRole("radio", { name: String(score), exact: true }).check({ force: true });
   if (note) await page.getByLabel(/A note, if you like/).fill(note);

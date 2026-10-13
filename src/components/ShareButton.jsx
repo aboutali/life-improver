@@ -1,6 +1,7 @@
 import { useId, useRef, useState } from "react";
 import { drawShareCard, shareOrDownload } from "../lib/shareCard.js";
 import { toLocalDate } from "../lib/dates.js";
+import { showHud } from "./showHud.jsx";
 
 // Offers the assessment as an image. Numbers are hidden by default: the shape
 // of the garden is enough to share.
@@ -24,7 +25,10 @@ export default function ShareButton({ domains, overall }) {
       const drawn = await drawShareCard(canvas, { domains, overall, hideScores, date });
       if (!drawn) throw new Error("This browser cannot draw the image.");
       const result = await shareOrDownload(canvas, `life-improver-${toLocalDate()}.png`);
-      if (result === "downloaded") setMessage("Image saved to your downloads.");
+      if (result === "downloaded") {
+        setMessage("Image saved to your downloads.");
+        showHud("Image saved");
+      }
     } catch (err) {
       setFailed(true);
       setMessage(err && err.message ? err.message : "The image could not be shared.");

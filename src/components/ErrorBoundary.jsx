@@ -27,7 +27,7 @@ export default class ErrorBoundary extends Component {
         <h2 className="sf" tabIndex={-1} style={{ fontSize: "var(--fs-title)", fontWeight: 400, color: "#1A1A1A", marginBottom: 8 }}>
           Something went astray
         </h2>
-        <p style={{ fontSize: 14, color: "#666", marginBottom: 16 }}>
+        <p className="t-foot" style={{ marginBottom: 16 }}>
           Your data may be damaged. Export or start over in Settings.
         </p>
         <a className="btn btn-primary btn-tap" href={href("/settings")} style={{ textDecoration: "none", display: "inline-flex", alignItems: "center" }}>

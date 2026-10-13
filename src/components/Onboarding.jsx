@@ -4,7 +4,8 @@ import { useToday } from "../hooks/useToday.js";
 import { makeFocus, suggestFocus, suggestPractice } from "../lib/recommend.js";
 import { clearDraft, importData, readDraft, writeDraft } from "../lib/storage.js";
 import { finishRestore } from "../lib/notice.js";
-import FocusPicker from "./FocusPicker.jsx";
+import { FocusPickerSheet } from "./FocusPicker.jsx";
+import { showHud } from "./showHud.jsx";
 
 // Enough to find a place to begin; the rest can wait for the full assessment.
 const MIN_RATED = 4;
@@ -43,8 +44,6 @@ export default function Onboarding({ scores, quick, focus, checkins, navigate, p
   const headingRef = useRef(null);
   const mounted = useRef(false);
   const chooseRef = useRef(null);
-  const pickerWasOpen = useRef(false);
-  const pickerRef = useRef(null);
   const today = useToday();
 
   // Move focus to the new step's heading so screen readers follow along.
@@ -52,22 +51,6 @@ export default function Onboarding({ scores, quick, focus, checkins, navigate, p
     if (mounted.current) headingRef.current?.focus();
     mounted.current = true;
   }, [step]);
-
-  // The picker moves focus to its own heading when it opens; when it closes,
-  // hand focus back to "Choose another".
-  useEffect(() => {
-    if (picking) {
-      pickerWasOpen.current = true;
-      // The list opens below the suggestion: bring its heading to the top.
-      const heading = pickerRef.current?.querySelector("h3");
-      if (heading && typeof heading.scrollIntoView === "function") {
-        heading.scrollIntoView({ block: "start" });
-      }
-    } else if (pickerWasOpen.current) {
-      pickerWasOpen.current = false;
-      chooseRef.current?.focus();
-    }
-  }, [picking]);
 
   useEffect(() => {
     if (!planted.current) writeDraft({ quick: draft, pick });
@@ -127,6 +110,7 @@ export default function Onboarding({ scores, quick, focus, checkins, navigate, p
         checkins: checkins.checkins,
       })
     );
+    showHud("Focus set");
     navigate("/");
   };
 
@@ -261,28 +245,25 @@ export default function Onboarding({ scores, quick, focus, checkins, navigate, p
             <h3 className="sf t-title wl-seed-title">{sub.name}</h3>
             <p className="sf wl-seed-practice">{sub.ideas[practiceIndex]}</p>
             <p className="t-sub wl-reason">{pick ? "You chose this place to begin." : suggested.reason}</p>
-            {picking && (
-              <div ref={pickerRef}>
-                <FocusPicker
-                  scores={scores}
-                  quickScores={draft}
-                  current={chosen}
-                  onPick={(domainId, subIndex) => { setPick({ domainId, subIndex }); setPicking(false); }}
-                  onClose={() => setPicking(false)}
-                />
-              </div>
-            )}
           </div>
           <button
             type="button"
             className="btn btn-block wl-choose"
             ref={chooseRef}
-            hidden={picking}
-            aria-expanded={picking}
+            aria-haspopup="dialog"
             onClick={() => setPicking(true)}
           >
             Choose another
           </button>
+          <FocusPickerSheet
+            open={picking}
+            onClose={() => setPicking(false)}
+            returnFocusRef={chooseRef}
+            scores={scores}
+            quickScores={draft}
+            current={chosen}
+            onPick={(domainId, subIndex) => { setPick({ domainId, subIndex }); setPicking(false); }}
+          />
           <p className="wl-skip">
             <button type="button" className="btn-text" onClick={() => navigate("/assess")}>
               Skip to the full assessment
@@ -291,7 +272,7 @@ export default function Onboarding({ scores, quick, focus, checkins, navigate, p
           <div className="action-bar">
             <div className="wl-bar">
               <button type="button" className="btn" onClick={() => go(2)}>Back</button>
-              <button type="button" className="btn btn-primary" hidden={picking} onClick={plant}>
+              <button type="button" className="btn btn-primary" onClick={plant}>
                 Plant this seed
               </button>
             </div>

@@ -71,24 +71,19 @@ describe("Onboarding", () => {
     expect(screen.getByRole("button", { name: "Choose another" })).toHaveFocus();
   });
 
-  it("hides Plant this seed while the picker is open and scrolls its heading into view", async () => {
-    const scrollIntoView = vi.fn();
-    Element.prototype.scrollIntoView = scrollIntoView;
-    try {
-      render(<Harness />);
-      await toStep2();
-      [8, 7, 2, 6].forEach((v, i) => rate(FRAMEWORK[i].domain, v));
-      await userEvent.click(screen.getByRole("button", { name: "Next" }));
-      await userEvent.click(screen.getByRole("button", { name: "Choose another" }));
-      expect(scrollIntoView).toHaveBeenCalledWith({ block: "start" });
-      expect(scrollIntoView.mock.contexts[0]).toBe(screen.getByRole("heading", { name: "Choose where to begin" }));
-      expect(screen.queryByRole("button", { name: "Plant this seed" })).not.toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: "Choose another" })).not.toBeInTheDocument();
-      await userEvent.click(screen.getByRole("button", { name: "Keep the suggestion" }));
-      expect(screen.getByRole("button", { name: "Plant this seed" })).toBeInTheDocument();
-    } finally {
-      delete Element.prototype.scrollIntoView;
-    }
+  it("opens the picker as a labelled dialog sheet over the suggestion, and closes it with Escape", async () => {
+    render(<Harness />);
+    await toStep2();
+    [8, 7, 2, 6].forEach((v, i) => rate(FRAMEWORK[i].domain, v));
+    await userEvent.click(screen.getByRole("button", { name: "Next" }));
+    await userEvent.click(screen.getByRole("button", { name: "Choose another" }));
+    const dialog = screen.getByRole("dialog", { name: "Choose where to begin" });
+    expect(dialog).toHaveAttribute("aria-modal", "true");
+    // The suggestion stays on the page behind the sheet.
+    expect(screen.getByRole("button", { name: "Plant this seed" })).toBeInTheDocument();
+    await userEvent.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Choose another" })).toHaveFocus();
   });
 
   it("shows seven unset sliders and gates Next on four ratings", async () => {

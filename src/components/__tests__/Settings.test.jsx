@@ -1,8 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import Settings from "../Settings.jsx";
 import { KEYS } from "../../lib/storage.js";
+import { showHud } from "../showHud.jsx";
+
+vi.mock("../showHud.jsx", () => ({ showHud: vi.fn() }));
 
 const checkin = {
   id: "a", date: "2026-10-01", week: "2026-W40", domainId: 1, subIndex: 0, practiceIndex: 0,
@@ -27,6 +30,7 @@ beforeEach(() => {
   reload = vi.fn();
   replace = vi.fn();
   sessionStorage.clear();
+  showHud.mockClear();
   Object.defineProperty(window, "location", {
     configurable: true,
     value: { ...realLocation, reload, replace },
@@ -89,6 +93,7 @@ describe("Settings", () => {
     const saved = JSON.parse(await blobText(URL.createObjectURL.mock.calls[0][0]));
     expect(saved.data.scores).toEqual({ "1-0": 4 });
     expect(saved.data.checkins).toHaveLength(1);
+    expect(showHud).toHaveBeenCalledWith("Copy saved");
   });
 
   it("offers the damaged copy only when one exists, and bundles it", async () => {
@@ -110,7 +115,6 @@ describe("Settings", () => {
 
   it("imports a file after confirmation, leaves a notice, and reloads on Today", async () => {
     const user = userEvent.setup();
-    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
     render(<Settings {...makeProps(true)} />);
     const payload = {
       app: "life-improver",
@@ -120,16 +124,17 @@ describe("Settings", () => {
     };
     const file = new File([JSON.stringify(payload)], "backup.json", { type: "application/json" });
     await user.upload(screen.getByLabelText(/restore from a copy/i), file);
+    const sheet = await screen.findByRole("dialog", { name: "Replace all data on this device?" });
+    expect(reload).not.toHaveBeenCalled();
+    await user.click(within(sheet).getByRole("button", { name: "Replace data" }));
     await waitFor(() => expect(reload).toHaveBeenCalled());
-    expect(confirm).toHaveBeenCalledWith("Replace all data on this device with the imported file?");
     expect(replace).toHaveBeenCalledWith("#/");
     expect(sessionStorage.getItem("life-improver:notice")).toBe("Restored 0 check-ins.");
     expect(JSON.parse(localStorage.getItem(KEYS.scores))).toEqual({ "1-0": 4 });
   });
 
-  it("restores without a confirm dialog when the device holds no data", async () => {
+  it("restores without an action sheet when the device holds no data", async () => {
     const user = userEvent.setup();
-    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
     render(<Settings {...makeProps()} />);
     const payload = {
       app: "life-improver",
@@ -140,13 +145,12 @@ describe("Settings", () => {
     const file = new File([JSON.stringify(payload)], "backup.json", { type: "application/json" });
     await user.upload(screen.getByLabelText(/restore from a copy/i), file);
     await waitFor(() => expect(reload).toHaveBeenCalled());
-    expect(confirm).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(sessionStorage.getItem("life-improver:notice")).toBe("Restored 1 check-in.");
   });
 
   it("shows an inline error for a bad file and does not reload", async () => {
     const user = userEvent.setup();
-    vi.spyOn(window, "confirm").mockReturnValue(true);
     render(<Settings {...makeProps()} />);
     const file = new File(["not json"], "bad.json", { type: "application/json" });
     await user.upload(screen.getByLabelText(/restore from a copy/i), file);
@@ -156,21 +160,26 @@ describe("Settings", () => {
 
   it("leaves data alone when the import is not confirmed", async () => {
     const user = userEvent.setup();
-    vi.spyOn(window, "confirm").mockReturnValue(false);
     render(<Settings {...makeProps(true)} />);
     const file = new File(["{}"], "x.json", { type: "application/json" });
     await user.upload(screen.getByLabelText(/restore from a copy/i), file);
-    await waitFor(() => expect(window.confirm).toHaveBeenCalled());
+    const sheet = await screen.findByRole("dialog", { name: "Replace all data on this device?" });
+    await user.click(within(sheet).getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(reload).not.toHaveBeenCalled();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
-  it("resets everything after confirm and goes to the welcome screen", async () => {
+  it("resets everything after the action sheet is confirmed and goes to the welcome screen", async () => {
     const user = userEvent.setup();
-    vi.spyOn(window, "confirm").mockReturnValue(true);
     const props = makeProps();
     render(<Settings {...props} />);
     await user.click(screen.getByRole("button", { name: /reset all data/i }));
+    const sheet = await screen.findByRole("dialog", { name: "Erase all data?" });
+    expect(props.scores.reset).not.toHaveBeenCalled();
+    // The destructive option is marked, and Cancel is a separate button.
+    expect(within(sheet).getByRole("button", { name: "Erase everything" })).toHaveClass("is-destructive");
+    await user.click(within(sheet).getByRole("button", { name: "Erase everything" }));
     expect(props.scores.reset).toHaveBeenCalled();
     expect(props.quick.reset).toHaveBeenCalled();
     expect(props.focus.clearFocus).toHaveBeenCalled();
@@ -178,12 +187,29 @@ describe("Settings", () => {
     expect(props.navigate).toHaveBeenCalledWith("/welcome");
   });
 
-  it("does nothing when the reset is declined", async () => {
+  it("closes the reset sheet with Escape and a tap outside, leaving data alone", async () => {
     const user = userEvent.setup();
-    vi.spyOn(window, "confirm").mockReturnValue(false);
+    const props = makeProps();
+    render(<Settings {...props} />);
+    const trigger = screen.getByRole("button", { name: /reset all data/i });
+    await user.click(trigger);
+    await screen.findByRole("dialog", { name: "Erase all data?" });
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(trigger).toHaveFocus();
+    await user.click(trigger);
+    await screen.findByRole("dialog");
+    await user.click(document.querySelector(".sheet-backdrop"));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(props.scores.reset).not.toHaveBeenCalled();
+  });
+
+  it("does nothing when the reset is cancelled", async () => {
+    const user = userEvent.setup();
     const props = makeProps();
     render(<Settings {...props} />);
     await user.click(screen.getByRole("button", { name: /reset all data/i }));
+    await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Cancel" }));
     expect(props.scores.reset).not.toHaveBeenCalled();
     expect(props.navigate).not.toHaveBeenCalled();
   });

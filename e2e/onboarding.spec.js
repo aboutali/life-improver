@@ -154,7 +154,7 @@ test.describe("Group 1: first time and first week", () => {
     await rateAndContinue(page, ALL_SEVEN);
 
     await page.getByRole("button", { name: "Choose another" }).click();
-    const picker = page.getByRole("group", { name: "Choose where to begin" });
+    const picker = page.getByRole("dialog", { name: "Choose where to begin" });
     await expect(picker).toBeVisible();
 
     // Part 1: three suggestions from the quick ratings (lowest first, sub 0 of each domain).
@@ -181,12 +181,11 @@ test.describe("Group 1: first time and first week", () => {
     await expect(leisureGroup).toHaveAttribute("aria-expanded", "true");
     await expect(all.locator("button.fp-sub")).toHaveCount(byId(4).subs.length + leisure.subs.length);
     await shot(page, testInfo, "S03", "2-all-areas");
-    friction(testInfo, "On step 3 the picker opens below 'Plant this seed' and pushes the page to about 2.5 screens on a phone; the suggestion card above it stays visible, so it is unclear which choice is live until the user picks.");
 
     // A domain that is not the lowest can now be chosen: the old picker could not do this.
     const pick = leisure.subs[1];
     await all.getByRole("button", { name: pick.name }).click();
-    await expect(page.getByRole("group", { name: "Choose where to begin" })).toHaveCount(0);
+    await expect(page.getByRole("dialog", { name: "Choose where to begin" })).toHaveCount(0);
     await expect(page.getByRole("heading", { level: 3, name: pick.name })).toBeVisible();
     await expect(page.getByText("You chose this place to begin.")).toBeVisible();
     await shot(page, testInfo, "S03", "3-picked");
@@ -337,7 +336,7 @@ test.describe("Group 1: first time and first week", () => {
 
     // Practice event: tomorrow (Thursday) at 07:30.
     await page.getByRole("button", { name: "Add to calendar" }).click();
-    const panel = page.getByRole("group", { name: "Add to calendar" });
+    const panel = page.getByRole("dialog", { name: "Add to calendar" });
     await expect(panel.getByLabel("Day")).toHaveValue("4");
     await expect(panel.getByLabel("Time")).toHaveValue("07:30");
     await expect(panel.getByText("First one: Thu 8 Oct")).toBeVisible();
@@ -353,12 +352,14 @@ test.describe("Group 1: first time and first week", () => {
     ]);
     expect(dl1.suggestedFilename()).toBe("life-improver-practice.ics");
     const ics1 = fs.readFileSync(await dl1.path(), "utf8");
-    await expect(panel.getByRole("status")).toContainText("Downloaded");
+    // The sheet closes and a HUD says it is done.
+    await expect(page.getByRole("status").filter({ hasText: "Added to calendar" })).toBeVisible();
+    await expect(panel).toHaveCount(0);
     await shot(page, testInfo, "S07", "2-practice-downloaded");
 
     // Check-in event: Sunday 18:00, at least 3 days out.
     await page.getByRole("button", { name: "Remind me weekly" }).click();
-    const panel2 = page.getByRole("group", { name: "Add a weekly check-in to my calendar" });
+    const panel2 = page.getByRole("dialog", { name: "Add a weekly check-in to my calendar" });
     await expect(panel2.getByLabel("Day")).toHaveValue("0");
     await expect(panel2.getByLabel("Time")).toHaveValue("18:00");
     await expect(panel2.getByText("First one: Sun 11 Oct")).toBeVisible();
@@ -580,13 +581,15 @@ test.describe("Group 1: first time and first week", () => {
     });
     await go(page, "/");
     await page.getByRole("button", { name: "Add to calendar" }).click();
-    const panel = page.getByRole("group", { name: "Add to calendar" });
+    const panel = page.getByRole("dialog", { name: "Add to calendar" });
     await expect(panel.getByLabel("Day")).toHaveValue("1");
     await expect(panel.getByLabel("Time")).toHaveValue("07:30");
     await expect(panel.getByText("First one: Mon 12 Oct")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(panel).toHaveCount(0);
 
     await page.getByRole("button", { name: "Remind me weekly" }).click();
-    const panel2 = page.getByRole("group", { name: "Add a weekly check-in to my calendar" });
+    const panel2 = page.getByRole("dialog", { name: "Add a weekly check-in to my calendar" });
     await expect(panel2.getByLabel("Day")).toHaveValue("0");
     await expect(panel2.getByText("First one: Sun 18 Oct")).toBeVisible();
     // The date stays on a Sunday, 3 or more days away, for any other chosen day.

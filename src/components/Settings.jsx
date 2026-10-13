@@ -4,6 +4,8 @@ import { finishRestore } from "../lib/notice.js";
 import { saveJson } from "../lib/download.js";
 import { toLocalDate } from "../lib/dates.js";
 import { href } from "../lib/router.js";
+import { confirmAction } from "./confirmAction.jsx";
+import { showHud } from "./showHud.jsx";
 
 // `beforeinstallprompt` fires once, early. Capture it at module load so the
 // Install button still works when the person opens Settings later.
@@ -52,6 +54,28 @@ function Chevron() {
   );
 }
 
+// Small rounded-square tile with a white glyph, like the icons in iOS Settings.
+// `tone` picks the colour: accent, green, orange, grey or danger.
+const GLYPHS = {
+  save: <><path d="M12 4.5v10M8 10.5l4 4 4-4" /><path d="M5 19h14" /></>,
+  restore: <><path d="M12 15.5v-10M8 9l4-4 4 4" /><path d="M5 19h14" /></>,
+  warn: <><path d="M12 4.5l8.5 15h-17z" /><path d="M12 10v4.5M12 17.3v.01" /></>,
+  install: <><rect x="4.5" y="4.5" width="15" height="15" rx="3.5" /><path d="M12 8.5v7M8.5 12h7" /></>,
+  grid: <><rect x="4.5" y="4.5" width="6" height="6" rx="1.6" /><rect x="13.5" y="4.5" width="6" height="6" rx="1.6" /><rect x="4.5" y="13.5" width="6" height="6" rx="1.6" /><rect x="13.5" y="13.5" width="6" height="6" rx="1.6" /></>,
+  book: <><path d="M5.5 6A2 2 0 0 1 7.5 4H19v13H7.5a2 2 0 0 0-2 2z" /><path d="M5.5 19a2 2 0 0 0 2 2H19" /></>,
+  trash: <><path d="M5 7h14M10 7V5h4v2M7 7l.9 12h8.2L17 7" /></>,
+};
+
+function Tile({ tone, glyph }) {
+  return (
+    <span className={`set-tile set-tile-${tone}`} aria-hidden="true">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" focusable="false">
+        {GLYPHS[glyph]}
+      </svg>
+    </span>
+  );
+}
+
 export default function Settings({ scores, quick, focus, checkins, navigate }) {
   const [importError, setImportError] = useState("");
   const installPrompt = useInstallPrompt();
@@ -75,6 +99,7 @@ export default function Settings({ scores, quick, focus, checkins, navigate }) {
 
   const onExport = () => {
     saveJson(`life-improver-${toLocalDate()}.json`, snapshot());
+    showHud("Copy saved");
   };
 
   const onExportBad = () => {
@@ -84,6 +109,7 @@ export default function Settings({ scores, quick, focus, checkins, navigate }) {
       savedAt: new Date().toISOString(),
       copies: badCopies,
     });
+    showHud("Copy saved");
   };
 
   const onImport = async (e) => {
@@ -94,7 +120,15 @@ export default function Settings({ scores, quick, focus, checkins, navigate }) {
     try {
       const text = await readText(file);
       // Nothing here to lose, so nothing to confirm.
-      if (hasData && !window.confirm("Replace all data on this device with the imported file?")) return;
+      if (hasData) {
+        const ok = await confirmAction({
+          title: "Replace all data on this device?",
+          message: "Your scores, check-ins and focus will be replaced by the imported file. This cannot be undone.",
+          confirmLabel: "Replace data",
+          destructive: true,
+        });
+        if (!ok) return;
+      }
       const restored = importData(text);
       finishRestore(restored.checkins.length);
     } catch (err) {
@@ -104,8 +138,14 @@ export default function Settings({ scores, quick, focus, checkins, navigate }) {
     }
   };
 
-  const onReset = () => {
-    if (!window.confirm("Erase every score, check-in and your current focus from this device? This cannot be undone.")) return;
+  const onReset = async () => {
+    const ok = await confirmAction({
+      title: "Erase all data?",
+      message: "Every score, check-in and your current focus will be erased from this device. This cannot be undone.",
+      confirmLabel: "Erase everything",
+      destructive: true,
+    });
+    if (!ok) return;
     scores.reset();
     quick.reset();
     focus.clearFocus();
@@ -136,11 +176,18 @@ export default function Settings({ scores, quick, focus, checkins, navigate }) {
       <section aria-labelledby="set-data">
         <h3 className="t-eyebrow list-title" id="set-data">Your data</h3>
         <div className="list">
-          <button type="button" className="row set-act" onClick={onExport}>Download a copy</button>
+          <button type="button" className="row set-act" onClick={onExport}>
+            <Tile tone="accent" glyph="save" />
+            <span>Download a copy</span>
+          </button>
           {hasBad && (
-            <button type="button" className="row set-act" onClick={onExportBad}>Download the damaged copy</button>
+            <button type="button" className="row set-act" onClick={onExportBad}>
+              <Tile tone="orange" glyph="warn" />
+              <span>Download the damaged copy</span>
+            </button>
           )}
           <div className="row set-file">
+            <Tile tone="green" glyph="restore" />
             <label className="set-act set-file-label">
               Restore from a copy
               <input
@@ -166,7 +213,10 @@ export default function Settings({ scores, quick, focus, checkins, navigate }) {
         {installPrompt ? (
           <>
             <div className="list">
-              <button type="button" className="row set-act" onClick={onInstall}>Install</button>
+              <button type="button" className="row set-act" onClick={onInstall}>
+                <Tile tone="accent" glyph="install" />
+                <span>Install</span>
+              </button>
             </div>
             <p className="t-foot set-foot">Keep Life Improver on your home screen, one tap away.</p>
           </>
@@ -183,10 +233,12 @@ export default function Settings({ scores, quick, focus, checkins, navigate }) {
         <h3 className="t-eyebrow list-title" id="set-explore">Explore</h3>
         <div className="list">
           <a className="row" href={href("/framework")}>
+            <Tile tone="green" glyph="grid" />
             <span>Framework</span>
             <Chevron />
           </a>
           <a className="row" href={href("/sources")}>
+            <Tile tone="grey" glyph="book" />
             <span>Sources</span>
             <Chevron />
           </a>
@@ -215,7 +267,10 @@ export default function Settings({ scores, quick, focus, checkins, navigate }) {
       <section aria-labelledby="set-reset">
         <h3 className="t-eyebrow list-title" id="set-reset">Start over</h3>
         <div className="list">
-          <button type="button" className="row set-danger" onClick={onReset}>Reset all data</button>
+          <button type="button" className="row set-danger" onClick={onReset}>
+            <Tile tone="danger" glyph="trash" />
+            <span>Reset all data</span>
+          </button>
         </div>
         <p className="t-foot set-foot">
           Clear every score, check-in and your current focus from this device. Download a copy first if you may want them back.

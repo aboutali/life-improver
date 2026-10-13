@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { FRAMEWORK, TOTAL_SUBS } from "../data/framework.js";
 import ShareButton from "./ShareButton.jsx";
+import { confirmAction } from "./confirmAction.jsx";
 import { makeFocus } from "../lib/recommend.js";
 import { toLocalDate } from "../lib/dates.js";
 
@@ -183,8 +184,14 @@ function Dashboard({ scores, focus, checkins, navigate }) {
     navigate?.("/");
   };
 
-  const onResetClick = () => {
-    if (window.confirm("Clear every score? This cannot be undone.")) scores.reset();
+  const onResetClick = async () => {
+    const ok = await confirmAction({
+      title: "Clear every score?",
+      message: "All of your ratings will be removed from this device. This cannot be undone.",
+      confirmLabel: "Clear scores",
+      destructive: true,
+    });
+    if (ok) scores.reset();
   };
 
   const subRow = (s, i, withAction) => {

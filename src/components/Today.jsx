@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { FRAMEWORK } from "../data/framework.js";
 import { useToday } from "../hooks/useToday.js";
 import { suggestFocus, nextPractice, makeFocus, lowerSubNudge } from "../lib/recommend.js";
@@ -14,9 +14,10 @@ import {
   weekdayName,
 } from "../lib/rhythm.js";
 import { checkinEvent, practiceEvent } from "../lib/ics.js";
-import FocusPicker from "./FocusPicker.jsx";
+import { FocusPickerSheet } from "./FocusPicker.jsx";
 import Garden from "./Garden.jsx";
 import CalendarButton from "./CalendarButton.jsx";
+import { showHud } from "./showHud.jsx";
 import { CalendarIcon, Chevron, CompassIcon, SwapIcon } from "./TodayIcons.jsx";
 
 const appUrl = () => window.location.origin + window.location.pathname;
@@ -54,7 +55,6 @@ export default function Today({ scores, quick, focus, checkins, navigate }) {
   const [pickedUp, setPickedUp] = useState(readPickedUp);
   const today = useToday();
   const triggerRef = useRef(null);
-  const wasPicking = useRef(false);
   const quickScores = quick.quick || {};
 
   const current = focus.focus;
@@ -66,17 +66,12 @@ export default function Today({ scores, quick, focus, checkins, navigate }) {
     ? null
     : suggestFocus({ scores: scores.scores, quick: quickScores });
 
-  // When the picker closes, focus returns to the button that opened it.
-  useEffect(() => {
-    if (wasPicking.current && !picking && triggerRef.current) triggerRef.current.focus();
-    wasPicking.current = picking;
-  }, [picking]);
-
   const plant = (domainId, subIndex, origin) => {
     focus.setFocus(
       makeFocus({ domainId, subIndex, origin, today, checkins: checkins.checkins })
     );
     setPicking(false);
+    showHud("Focus set");
   };
 
   // Choosing the sub already in focus changes nothing.
@@ -140,42 +135,21 @@ export default function Today({ scores, quick, focus, checkins, navigate }) {
           domain={currentDomain}
           sub={currentSub}
           reason={reasonFor(current, scores, quickScores)}
-          onSwap={() =>
-            focus.setFocus(nextPractice(current, FRAMEWORK, checkins.checkins, today))
-          }
-          picking={picking}
+          onSwap={() => {
+            focus.setFocus(nextPractice(current, FRAMEWORK, checkins.checkins, today));
+            showHud("New practice");
+          }}
           onChoose={() => setPicking(true)}
           triggerRef={triggerRef}
-          picker={
-            <FocusPicker
-              scores={scores}
-              quickScores={quickScores}
-              current={current}
-              currentLabel="Current"
-              closeLabel="Keep this focus"
-              onPick={pickFromList}
-              onClose={() => setPicking(false)}
-            />
-          }
         />
       ) : suggestion ? (
         <SuggestionCard
           suggestion={suggestion}
           today={today}
           checkins={checkins.checkins}
-          picking={picking}
           onPlant={() => plant(suggestion.domainId, suggestion.subIndex, "suggested")}
           onChoose={() => setPicking(true)}
           triggerRef={triggerRef}
-          picker={
-            <FocusPicker
-              scores={scores}
-              quickScores={quickScores}
-              current={suggestion}
-              onPick={pickFromList}
-              onClose={() => setPicking(false)}
-            />
-          }
         />
       ) : (
         <section className="cd">
@@ -197,11 +171,23 @@ export default function Today({ scores, quick, focus, checkins, navigate }) {
           <Chevron />
         </a>
       </div>
+
+      <FocusPickerSheet
+        open={picking}
+        onClose={() => setPicking(false)}
+        returnFocusRef={triggerRef}
+        scores={scores}
+        quickScores={quickScores}
+        current={hasFocus ? current : suggestion}
+        currentLabel={hasFocus ? "Current" : undefined}
+        closeLabel={hasFocus ? "Keep this focus" : undefined}
+        onPick={pickFromList}
+      />
     </div>
   );
 }
 
-function FocusCard({ focus, domain, sub, reason, onSwap, picking, onChoose, triggerRef, picker }) {
+function FocusCard({ focus, domain, sub, reason, onSwap, onChoose, triggerRef }) {
   const text = sub.ideas[focus.practiceIndex] ?? sub.ideas[0];
   const practiceSlot = defaultPracticeSlot();
   return (
@@ -232,7 +218,7 @@ function FocusCard({ focus, domain, sub, reason, onSwap, picking, onChoose, trig
           type="button"
           className="row"
           ref={triggerRef}
-          aria-expanded={picking}
+          aria-haspopup="dialog"
           onClick={onChoose}
         >
           <CompassIcon />
@@ -240,12 +226,11 @@ function FocusCard({ focus, domain, sub, reason, onSwap, picking, onChoose, trig
           <Chevron />
         </button>
       </div>
-      {picking && picker}
     </section>
   );
 }
 
-function SuggestionCard({ suggestion, today, checkins, picking, onPlant, onChoose, triggerRef, picker }) {
+function SuggestionCard({ suggestion, today, checkins, onPlant, onChoose, triggerRef }) {
   const domain = FRAMEWORK.find((d) => d.id === suggestion.domainId);
   const sub = domain.subs[suggestion.subIndex];
   const { practiceIndex } = makeFocus({
@@ -264,13 +249,10 @@ function SuggestionCard({ suggestion, today, checkins, picking, onPlant, onChoos
         <button type="button" className="btn btn-primary btn-block" onClick={onPlant}>
           Plant this seed
         </button>
-        {!picking && (
-          <button type="button" className="btn btn-block" ref={triggerRef} onClick={onChoose}>
-            Choose another
-          </button>
-        )}
+        <button type="button" className="btn btn-block" ref={triggerRef} aria-haspopup="dialog" onClick={onChoose}>
+          Choose another
+        </button>
       </div>
-      {picking && picker}
     </section>
   );
 }
@@ -370,27 +352,23 @@ function CheckinCard({ focus, checkins, today, navigate }) {
         <button
           type="button"
           className="btn-text"
-          aria-expanded={reminding}
-          aria-controls="remind-weekly"
-          onClick={() => setReminding((r) => !r)}
+          aria-haspopup="dialog"
+          onClick={() => setReminding(true)}
         >
           Remind me weekly
         </button>
       </div>
-      {reminding && (
-        <div id="remind-weekly">
-          <CalendarButton
-            label="Add a weekly check-in to my calendar"
-            filename="life-improver-checkin.ics"
-            buildIcs={(start) => checkinEvent({ start, appUrl: appUrl() })}
-            defaultDay={slot.day}
-            defaultTime={slot.time}
-            minDaysAhead={slot.minDaysAhead}
-            defaultOpen
-            showTrigger={false}
-          />
-        </div>
-      )}
+      <CalendarButton
+        label="Add a weekly check-in to my calendar"
+        filename="life-improver-checkin.ics"
+        buildIcs={(start) => checkinEvent({ start, appUrl: appUrl() })}
+        defaultDay={slot.day}
+        defaultTime={slot.time}
+        minDaysAhead={slot.minDaysAhead}
+        open={reminding}
+        onClose={() => setReminding(false)}
+        showTrigger={false}
+      />
     </section>
   );
 }

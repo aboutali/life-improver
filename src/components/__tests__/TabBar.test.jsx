@@ -20,6 +20,37 @@ describe("TabBar", () => {
   });
 });
 
+describe("TabBar icons and re-tap", () => {
+  it("fills the icon of the current tab only", () => {
+    render(<TabBar path="/assess" />);
+    const bottom = within(screen.getByRole("navigation", { name: "Primary" }));
+    const fill = (name) => bottom.getByRole("link", { name }).querySelector("svg").getAttribute("fill");
+    expect(fill("Assess")).toBe("currentColor");
+    expect(fill("Today")).toBe("none");
+    expect(fill("Journey")).toBe("none");
+    expect(fill("Practices")).toBe("none");
+  });
+
+  it("scrolls to the top, without navigating, when the current tab is tapped again", async () => {
+    const scrollTo = vi.fn();
+    window.scrollTo = scrollTo;
+    try {
+      window.location.hash = "#/journey";
+      render(<TabBar path="/journey" />);
+      const link = within(screen.getByRole("navigation", { name: "Primary" })).getByRole("link", { name: "Journey" });
+      await userEvent.click(link);
+      expect(scrollTo).toHaveBeenCalledWith(expect.objectContaining({ top: 0 }));
+      // A different tab is a normal link: no scroll from the tab bar.
+      scrollTo.mockClear();
+      await userEvent.click(within(screen.getByRole("navigation", { name: "Primary" })).getByRole("link", { name: "Today" }));
+      expect(scrollTo).not.toHaveBeenCalled();
+    } finally {
+      delete window.scrollTo;
+      window.location.hash = "";
+    }
+  });
+});
+
 describe("TabBar on flows and pushed screens", () => {
   it("drops the bottom nav on Check-in and Settings but keeps the top tabs", () => {
     for (const path of ["/checkin", "/settings"]) {

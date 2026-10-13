@@ -228,7 +228,12 @@ test("S22: lowering another sub below the focus sub in Assess", async ({ page },
 test("S23: download a copy, start over, restore on a new device", async ({ page, browser }, testInfo) => {
   test.setTimeout(60_000);
   const { expectNoErrors } = trackErrors(page);
-  page.on("dialog", (d) => d.accept());
+  // No browser dialogs: a native one would be a regression.
+  const nativeDialogs = [];
+  page.on("dialog", (d) => {
+    nativeDialogs.push(d.message());
+    return d.dismiss();
+  });
   await freezeAt(page);
   await seed(page, { quick: RETURNING.quick, focus: RETURNING.focus, checkins: RETURNING.checkins, scores: RETURNING.scores });
   await go(page, "/settings");
@@ -246,6 +251,10 @@ test("S23: download a copy, start over, restore on a new device", async ({ page,
 
   // Start over.
   await page.getByRole("button", { name: "Reset all data" }).click();
+  const erase = page.getByRole("dialog", { name: "Erase all data?" });
+  await expect(erase).toBeVisible();
+  await shot(page, testInfo, "S23", "erase-sheet");
+  await erase.getByRole("button", { name: "Erase everything" }).click();
   await expect(page).toHaveURL(/#\/welcome$/);
   expect(await readStore(page, "checkins")).toEqual([]);
   expect(await readStore(page, "focus")).toBeNull();
@@ -260,10 +269,9 @@ test("S23: download a copy, start over, restore on a new device", async ({ page,
     const page2 = await context.newPage();
     const errors2 = trackErrors(page2);
     const dialogs = [];
-    let dialogAction = "accept";
     page2.on("dialog", (d) => {
       dialogs.push(d.message());
-      return dialogAction === "accept" ? d.accept() : d.dismiss();
+      return d.dismiss();
     });
     await freezeAt(page2);
     await page2.goto("#/");
@@ -280,7 +288,8 @@ test("S23: download a copy, start over, restore on a new device", async ({ page,
     const notice = page2.getByRole("status").filter({ hasText: "Restored 2 check-ins." });
     await expect(notice).toBeVisible();
     await shot(page2, testInfo, "S23", "after-restore");
-    // An empty device has nothing to replace, so no confirm dialog was asked.
+    // An empty device has nothing to replace, so nothing was asked.
+    await expect(page2.getByRole("dialog")).toHaveCount(0);
     expect(dialogs).toEqual([]);
 
     expect((await readStore(page2, "checkins")).length).toBe(2);
@@ -296,16 +305,19 @@ test("S23: download a copy, start over, restore on a new device", async ({ page,
     // Restoring onto a device that already has data still asks first.
     await page2.getByRole("link", { name: "Settings", exact: true }).click();
     await expect(page2.getByRole("heading", { name: "Settings & privacy" })).toBeVisible();
-    dialogAction = "dismiss";
-    const asked = page2.waitForEvent("dialog");
     await page2.locator('input[type="file"]').setInputFiles(copy.file);
-    expect((await asked).message()).toMatch(/Replace all data on this device/);
+    const replace = page2.getByRole("dialog", { name: "Replace all data on this device?" });
+    await expect(replace).toBeVisible();
+    await replace.getByRole("button", { name: "Cancel" }).click();
+    await expect(replace).toHaveCount(0);
     await expect(page2).toHaveURL(/#\/settings$/);
+    expect(dialogs).toEqual([]);
     errors2.expectNoErrors();
   } finally {
     await context.close();
   }
 
+  expect(nativeDialogs).toEqual([]);
   expectNoErrors();
 });
 
@@ -1208,6 +1220,8 @@ test("S55: adopt a practice from another domain via the Practices deep link", as
   await expect(page.locator(".fp")).toBeVisible();
   await expect(page.locator(".fp").getByRole("button", { name: /practice/i })).toHaveCount(0);
   await shot(page, testInfo, "S55", "picker");
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".fp")).toHaveCount(0);
 
   await tab(page, "Journey");
   await expectJourneyStat(page, 2, "check-ins");
