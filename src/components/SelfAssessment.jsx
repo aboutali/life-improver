@@ -5,19 +5,19 @@ import { confirmAction } from "./confirmAction.jsx";
 import { makeFocus } from "../lib/recommend.js";
 import { toLocalDate } from "../lib/dates.js";
 
-const tierColor = (sc) =>
-  sc <= 2 ? "#C53030" : sc <= 4 ? "#DD6B20" : sc <= 6 ? "#D69E2E" : sc <= 8 ? "#38A169" : "#2B6CB0";
-const tierLabel = (sc) =>
-  sc <= 2 ? "Critical" : sc <= 4 ? "Neglected" : sc <= 6 ? "Adequate" : sc <= 8 ? "Strong" : "Thriving";
-const brightTierColor = (sc) =>
-  sc <= 2 ? "#EF4444" : sc <= 4 ? "#F97316" : sc <= 6 ? "#EAB308" : sc <= 8 ? "#22C55E" : "#3B82F6";
+// Tier 1..5 for a 1..10 score: Critical, Neglected, Adequate, Strong, Thriving.
+const tierOf = (sc) => (sc <= 2 ? 1 : sc <= 4 ? 2 : sc <= 6 ? 3 : sc <= 8 ? 4 : 5);
+const tierColor = (sc) => `var(--tier-${tierOf(sc)})`;
+const tierLabel = (sc) => ["Critical", "Neglected", "Adequate", "Strong", "Thriving"][tierOf(sc) - 1];
+// The bright set is for the dark score card.
+const brightTierColor = (sc) => `var(--tier-${tierOf(sc)}-bright)`;
 
 const TIERS = [
-  { name: "Critical",  color: "#C53030", range: "1–2",  desc: "Actively suffering. This is hurting you." },
-  { name: "Neglected", color: "#DD6B20", range: "3–4",  desc: "Not in crisis, but clearly underinvested." },
-  { name: "Adequate",  color: "#D69E2E", range: "5–6",  desc: "Functional. Nothing to celebrate or worry about." },
-  { name: "Strong",    color: "#38A169", range: "7–8",  desc: "Working well. You feel good about it." },
-  { name: "Thriving",  color: "#2B6CB0", range: "9–10", desc: "A genuine source of energy and meaning." }
+  { name: "Critical",  color: "var(--tier-1)", range: "1–2",  desc: "Actively suffering. This is hurting you." },
+  { name: "Neglected", color: "var(--tier-2)", range: "3–4",  desc: "Not in crisis, but clearly underinvested." },
+  { name: "Adequate",  color: "var(--tier-3)", range: "5–6",  desc: "Functional. Nothing to celebrate or worry about." },
+  { name: "Strong",    color: "var(--tier-4)", range: "7–8",  desc: "Working well. You feel good about it." },
+  { name: "Thriving",  color: "var(--tier-5)", range: "9–10", desc: "A genuine source of energy and meaning." }
 ];
 
 export default function SelfAssessment({ scores, focus, checkins, navigate }) {
@@ -97,7 +97,7 @@ export default function SelfAssessment({ scores, focus, checkins, navigate }) {
               <div className="cat-readout">
                 {sc ? (
                   <>
-                    <span className="cat-pill" style={{ background: color + "22" }}>
+                    <span className="cat-pill" style={{ "--tier": color }}>
                       <span className="cat-dot" style={{ background: color }} />
                       {label}
                     </span>
@@ -237,7 +237,7 @@ function Dashboard({ scores, focus, checkins, navigate }) {
             <div key={i} className="cat-bar">
               <span className="cat-bar-name">{d.name}</span>
               <div className="cat-bar-track">
-                <div style={{ height: "100%", borderRadius: 3, width: d.avg ? `${d.avg * 10}%` : 0, background: d.avg ? brightTierColor(d.avg) : "#334155", transition: "width .3s" }} />
+                <div style={{ height: "100%", borderRadius: 3, width: d.avg ? `${d.avg * 10}%` : 0, background: d.avg ? brightTierColor(d.avg) : "var(--card-ink-track)", transition: "width .3s" }} />
               </div>
               <span className="cat-bar-val">{d.avg ? d.avg.toFixed(1) : "—"}</span>
             </div>
@@ -247,11 +247,11 @@ function Dashboard({ scores, focus, checkins, navigate }) {
           <div className="cat-hero-foot">
             <div className="cat-hero-col">
               <p className="cat-hero-eyebrow cat-muted">Strongest</p>
-              <p className="cat-hero-name" style={{ color: "#22C55E" }}>{strongest.name}</p>
+              <p className="cat-hero-name" style={{ color: "var(--tier-4-bright)" }}>{strongest.name}</p>
             </div>
             <div className="cat-hero-col cat-right">
               <p className="cat-hero-eyebrow cat-muted">Focus</p>
-              <p className="cat-hero-name" style={{ color: "#F87171" }}>{weakest.name}</p>
+              <p className="cat-hero-name" style={{ color: "var(--tier-1-bright)" }}>{weakest.name}</p>
             </div>
           </div>
         )}

@@ -31,6 +31,19 @@ function readText(file) {
   });
 }
 
+// The app icon (public/icon.svg), drawn inline as a rounded square.
+function AppGlyph() {
+  return (
+    <svg className="wl-glyph" width="72" height="72" viewBox="0 0 512 512" aria-hidden="true" focusable="false">
+      <rect width="512" height="512" rx="115" fill="var(--accent-fill)" />
+      <path d="M256 396 V252" fill="none" stroke="var(--on-accent)" strokeWidth="14" strokeLinecap="round" />
+      <path d="M256 276 C256 206 206 160 128 160 C128 232 176 276 256 276 Z" fill="var(--on-accent)" />
+      <path d="M256 236 C256 176 296 136 364 136 C364 198 322 236 256 236 Z" fill="var(--on-accent)" />
+      <path d="M200 396 H312" fill="none" stroke="var(--on-accent)" strokeWidth="14" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 export default function Onboarding({ scores, quick, focus, checkins, navigate, path = "/welcome" }) {
   // The step comes from the route, so the browser's Back button moves between steps.
   const step = Math.max(1, STEP_PATHS.indexOf(path) + 1);
@@ -148,6 +161,7 @@ export default function Onboarding({ scores, quick, focus, checkins, navigate, p
       {step === 1 && (
         <section className="wl-hero">
           <div className="wl-hero-body">
+            <AppGlyph />
             <p className="t-eyebrow wl-eyebrow">Life Improver</p>
             <h2 className="sf t-large wl-title" tabIndex={-1} ref={headingRef}>Your whole life.<br />In one view.</h2>
             <p className="sf wl-lead">

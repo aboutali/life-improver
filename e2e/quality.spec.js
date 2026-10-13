@@ -23,6 +23,9 @@ const ROUTES = [
   { path: "/checkin", name: "checkin" },
   { path: "/welcome", name: "welcome", fresh: true },
   { path: "/welcome/rate", name: "welcome-rate", fresh: true },
+  // Empty states (L6): a newcomer's Journey and Check-in.
+  { path: "/journey", name: "journey-empty", fresh: true },
+  { path: "/checkin", name: "checkin-empty", fresh: true },
 ];
 const SCHEMES = ["light", "dark"];
 

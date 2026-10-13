@@ -8,6 +8,7 @@ import { isNewcomer, nextCheckinLabel } from "../lib/journey.js";
 import { isCheckinOpen } from "../lib/rhythm.js";
 import { href } from "../lib/router.js";
 import Sparkline from "./Sparkline.jsx";
+import EmptyState from "./EmptyState.jsx";
 
 const MAX_NOTE = 500;
 
@@ -112,20 +113,25 @@ export default function CheckIn({ scores, quick, focus, checkins, navigate }) {
     return (
       <div className="ci-empty">
         <h2 className="t-large" tabIndex={-1}>Weekly check-in</h2>
-        <p className="t-sub">
+        <EmptyState
+          icon="checkin"
+          title="No focus yet"
+          action={
+            newcomer ? (
+              <a href="#/welcome" className="btn btn-primary">
+                Begin with a one-minute welcome
+              </a>
+            ) : (
+              <a href="#/" className="btn btn-primary">
+                Choose a focus first
+              </a>
+            )
+          }
+        >
           {newcomer
             ? "There is nothing to check in on yet. A one-minute welcome sets your first focus."
             : "A check-in looks back at one practice. Choose a focus, and come back when the week has had its say."}
-        </p>
-        {newcomer ? (
-          <a href="#/welcome" className="btn btn-primary">
-            Begin with a one-minute welcome
-          </a>
-        ) : (
-          <a href="#/" className="btn btn-primary">
-            Choose a focus first
-          </a>
-        )}
+        </EmptyState>
       </div>
     );
   }

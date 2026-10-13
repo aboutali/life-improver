@@ -4,6 +4,7 @@ import { parseLocalDate } from "../lib/dates.js";
 import { changeSinceFirst, weeksActive } from "../lib/trends.js";
 import { MAX_WEEKS, groupLogByWeek, isNewcomer, weeklySeriesFor } from "../lib/journey.js";
 import Sparkline from "./Sparkline.jsx";
+import EmptyState from "./EmptyState.jsx";
 
 const PRACTISED_LABEL = { yes: "Practised", some: "Practised some", no: "Not this week" };
 
@@ -26,18 +27,23 @@ export default function Journey({ scores, quick, checkins }) {
     return (
       <div className="jr-empty">
         <h2 className="t-large">Journey</h2>
-        <p className="t-sub">
+        <EmptyState
+          icon="journey"
+          title="Your line is waiting"
+          action={
+            isNewcomer(quick?.quick, scores?.scoredCount) ? (
+              <a href="#/welcome" className="btn btn-primary">
+                Begin with a one-minute welcome
+              </a>
+            ) : (
+              <a href="#/checkin" className="btn btn-primary">
+                Make a first check-in
+              </a>
+            )
+          }
+        >
           Nothing here yet. After your first weekly check-in, the line of your progress begins.
-        </p>
-        {isNewcomer(quick?.quick, scores?.scoredCount) ? (
-          <a href="#/welcome" className="btn btn-primary">
-            Begin with a one-minute welcome
-          </a>
-        ) : (
-          <a href="#/checkin" className="btn btn-primary">
-            Make a first check-in
-          </a>
-        )}
+        </EmptyState>
       </div>
     );
   }
@@ -91,7 +97,7 @@ export default function Journey({ scores, quick, checkins }) {
                 </span>
               </div>
             </div>
-            <Sparkline series={r.series} height={56} label={r.sub} />
+            <Sparkline series={r.series} height={104} label={r.sub} detailed />
           </div>
         );
       })}

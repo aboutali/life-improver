@@ -16,6 +16,7 @@ import {
 import { checkinEvent, practiceEvent } from "../lib/ics.js";
 import { FocusPickerSheet } from "./FocusPicker.jsx";
 import Garden from "./Garden.jsx";
+import EmptyState from "./EmptyState.jsx";
 import CalendarButton from "./CalendarButton.jsx";
 import { showHud } from "./showHud.jsx";
 import { CalendarIcon, Chevron, CompassIcon, SwapIcon } from "./TodayIcons.jsx";
@@ -152,12 +153,17 @@ export default function Today({ scores, quick, focus, checkins, navigate }) {
           triggerRef={triggerRef}
         />
       ) : (
-        <section className="cd">
-          <p className="t-title today-h3">Nothing is rated yet.</p>
-          <button type="button" className="btn btn-primary btn-block" onClick={() => navigate("/welcome")}>
-            Begin with a short welcome
-          </button>
-        </section>
+        <EmptyState
+          icon="seed"
+          title="Nothing is rated yet."
+          action={
+            <button type="button" className="btn btn-primary btn-block" onClick={() => navigate("/welcome")}>
+              Begin with a short welcome
+            </button>
+          }
+        >
+          A one-minute welcome sets your first focus.
+        </EmptyState>
       )}
 
       {hasFocus && (
