@@ -91,3 +91,21 @@ Hypotheses mark places where the flow may not make sense. Tests record friction 
 | S74 | A user resets all data in Settings. | An action sheet "Erase all data?" with a red "Erase everything" and a separate Cancel (focused first). Cancel, Escape and the backdrop leave the data alone. No browser dialog appears. | New (I1). |
 | S74b | A user clears every score in Assess. | An action sheet "Clear every score?" with "Clear scores" and Cancel. Cancel keeps the 30 scores. | New (I1). |
 | S75 | A user opens Settings. | Download, Restore, Install, Framework, Sources and Reset rows carry small rounded-square tiles (accent, green, grey, red; orange for the damaged copy) with white glyphs. The tiles are hidden from assistive tech; names are unchanged. | New (L5). |
+
+## Group 6: Rows: swipe actions and context menus (`e2e/rows.spec.js`)
+
+Journey log rows and Practices rows. Touch stories run on the phone project with real touches (CDP `Input.dispatchTouchEvent`); mouse stories on desktop; keyboard stories on both. Unit tests cover the decisions (`swipe`, `contextMenu`, `swipeRegistry`, `clipboard`).
+
+| ID | Story | Expected today | Hypothesis |
+|---|---|---|---|
+| S80 | On a phone, a user swipes a Journey row left. | Past about half the action width the row stays open with a red "Delete"; the button is not in the accessibility tree or tab order while closed. Swiping back, tapping elsewhere or opening another row closes it (one row open at a time). A short, slow pull springs back. Resistance builds past the action. | New (benchmark: swipe actions). |
+| S80b | A user scrolls the page by dragging over a row. | The direction locks after 8px: a vertical drag scrolls the page and never opens the row. | New. |
+| S81 | A user swipes a row past 60% of its width. | The first action runs: the action sheet "Delete this check-in?" asks. Cancel brings the row back and keeps the entry. "Delete check-in" removes it from storage, shows a "Check-in deleted" HUD, and the Journey totals and chart follow. | New. |
+| S81b | A user taps the revealed Delete, on the only entry. | Same sheet; after deleting, Journey shows "Your line is waiting". | New. |
+| S82 | A user presses and holds a Journey row on a phone. | A still press of 500ms lifts the row (scale 1.02, shadow) over a dimmed, blurred backdrop with a rounded menu: "Copy note" (only if there is a note) and "Delete check-in" in red, icons at the right. Letting go keeps it open. A short press, or a move over 10px, opens nothing. The page behind is inert. A tap outside closes it and focus returns to the row's "More actions" button. | New (benchmark: context menus). |
+| S82b | A user holds a practice row. | "Practise this week" (not on the current practice), "Copy practice" and "See sources"; "See sources" opens `#/sources`. | New. |
+| S83 | On desktop, a user right-clicks a Journey row. | The same menu opens. "Copy note" copies the note and shows "Note copied". "Delete check-in" asks, removes, confirms. | New. |
+| S83b | On desktop, a user right-clicks a practice and chooses "Practise this week". | Same as the row button: the focus is planted (`origin: "practice"`) and Today shows it. | New. |
+| S84 | A keyboard or screen-reader user wants the row's actions. | Each row has a 44px "More actions for ..." button (`aria-haspopup="menu"`, `aria-expanded`). Enter opens a `role="menu"` with focus on the first `menuitem`; Arrow keys wrap, Home and End jump, Escape closes and focus returns to the button. Shift+F10 and the menu key open it too. Delete through the menu asks first; Escape in the sheet keeps the entry. | New. Never gesture-only. |
+| S84b | A keyboard user opens a practice row's menu and presses Tab. | The menu closes and focus stays on the button. | New. |
+| S85 | A user has Reduce Motion on and swipes a row. | The row snaps with no transition; the menu does not animate. | New. |

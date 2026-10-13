@@ -93,7 +93,61 @@ describe("Ideas", () => {
     render(<Ideas {...props({ query: { d: "1", s: "0" }, focus: { focus: current, setFocus: vi.fn() } })} />);
     expect(screen.queryByText("This week")).toBeNull();
     const row = screen.getByText(FRAMEWORK[0].subs[0].ideas[1]).closest(".ir");
-    expect(within(row).getByRole("button")).toBeInTheDocument();
+    expect(within(row).getByRole("button", { name: /^Practise this week:/ })).toBeInTheDocument();
+  });
+
+  describe("context menu", () => {
+    const first = FRAMEWORK[0].subs[0].ideas[2];
+    const open = async (user, p = props({ query: { d: "1", s: "0" } })) => {
+      render(<Ideas {...p} />);
+      await user.click(screen.getByRole("button", { name: new RegExp(`^More actions for ${first.slice(0, 20)}`) }));
+      return p;
+    };
+
+    it("has a More actions button on every row that opens a menu", async () => {
+      const user = userEvent.setup();
+      await open(user);
+      const menu = screen.getByRole("menu");
+      expect(within(menu).getAllByRole("menuitem").map((b) => b.textContent)).toEqual([
+        "Practise this week",
+        "Copy practice",
+        "See sources",
+      ]);
+    });
+
+    it("Practise this week plants the practice like the row button", async () => {
+      const user = userEvent.setup();
+      const p = await open(user);
+      await user.click(screen.getByRole("menuitem", { name: "Practise this week" }));
+      await vi.waitFor(() => expect(p.focus.setFocus).toHaveBeenCalledTimes(1));
+      expect(p.focus.setFocus.mock.calls[0][0]).toMatchObject({ domainId: 1, subIndex: 0, practiceIndex: 2, origin: "practice" });
+      expect(p.navigate).toHaveBeenCalledWith("/");
+    });
+
+    it("See sources navigates to the sources", async () => {
+      const user = userEvent.setup();
+      const p = await open(user);
+      await user.click(screen.getByRole("menuitem", { name: "See sources" }));
+      await vi.waitFor(() => expect(p.navigate).toHaveBeenCalledWith("/sources"));
+    });
+
+    it("Copy practice writes the practice to the clipboard", async () => {
+      const user = userEvent.setup();
+      const writeText = vi.fn().mockResolvedValue();
+      Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+      await open(user);
+      await user.click(screen.getByRole("menuitem", { name: "Copy practice" }));
+      await vi.waitFor(() => expect(writeText).toHaveBeenCalledWith(first));
+      delete navigator.clipboard;
+    });
+
+    it("leaves out Practise this week for the practice already in use", async () => {
+      const user = userEvent.setup();
+      const current = { domainId: 1, subIndex: 0, practiceIndex: 2, startedAt: toLocalDate(), skipped: [] };
+      await open(user, props({ query: { d: "1", s: "0" }, focus: { focus: current, setFocus: vi.fn() } }));
+      expect(screen.queryByRole("menuitem", { name: "Practise this week" })).toBeNull();
+      expect(screen.getByRole("menuitem", { name: "Copy practice" })).toBeInTheDocument();
+    });
   });
 
   it("adopting inside the sub already in focus keeps its clock and choices (P2)", async () => {

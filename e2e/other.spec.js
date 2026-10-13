@@ -83,7 +83,7 @@ test("S20: browse Practices and adopt one as this week's practice", async ({ pag
   // every other row offers "Practise this week".
   await expect(page.locator(".cat-tag")).toHaveCount(1);
   await expect(rows.nth(0).locator(".cat-tag")).toHaveText("This week");
-  await expect(rows.nth(0).getByRole("button")).toHaveCount(0);
+  await expect(rows.nth(0).getByRole("button", { name: /^Practise this week/ })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /^Practise this week/ })).toHaveCount(rowCount - 1);
   await shot(page, testInfo, "S20", "practices-list");
 

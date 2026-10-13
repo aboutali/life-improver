@@ -1,8 +1,13 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import Journey from "../Journey.jsx";
 import { FRAMEWORK } from "../../data/framework.js";
+
+vi.mock("../confirmAction.jsx", () => ({ confirmAction: vi.fn() }));
+vi.mock("../showHud.jsx", () => ({ showHud: vi.fn() }));
+import { confirmAction } from "../confirmAction.jsx";
+import { showHud } from "../showHud.jsx";
 
 const mk = (date, week, domainId, subIndex, score, extra = {}) => ({
   id: `${date}T10:00:00.000Z`,
@@ -142,5 +147,61 @@ describe("Journey", () => {
   it("offers no toggle with six weeks or fewer", () => {
     render(<Journey {...props([mk("2026-10-07", "2026-W41", 1, 0, 5)])} />);
     expect(screen.queryByRole("button", { name: "Show earlier weeks" })).not.toBeInTheDocument();
+  });
+
+  describe("deleting a check-in", () => {
+    beforeEach(() => vi.clearAllMocks());
+    const list = [
+      mk("2026-09-30", "2026-W40", 1, 0, 4, { id: "old" }),
+      mk("2026-10-07", "2026-W41", 1, 0, 6, { id: "new", note: "Slept well" }),
+    ];
+    const withRemove = (removeCheckin) => {
+      const p = props(list);
+      p.checkins.removeCheckin = removeCheckin;
+      return p;
+    };
+
+    it("asks first, then removes the entry and shows a HUD", async () => {
+      const user = userEvent.setup();
+      confirmAction.mockResolvedValue(true);
+      const removeCheckin = vi.fn();
+      render(<Journey {...withRemove(removeCheckin)} />);
+      const row = screen.getAllByRole("listitem")[0];
+      await user.click(within(row).getByRole("button", { name: /^More actions for/ }));
+      await user.click(screen.getByRole("menuitem", { name: "Delete check-in" }));
+      await vi.waitFor(() => expect(removeCheckin).toHaveBeenCalledWith("new"));
+      expect(confirmAction).toHaveBeenCalledWith(expect.objectContaining({ confirmLabel: "Delete check-in", destructive: true }));
+      expect(showHud).toHaveBeenCalledWith("Check-in deleted");
+    });
+
+    it("keeps the entry when the person cancels", async () => {
+      const user = userEvent.setup();
+      confirmAction.mockResolvedValue(false);
+      const removeCheckin = vi.fn();
+      render(<Journey {...withRemove(removeCheckin)} />);
+      const row = screen.getAllByRole("listitem")[1];
+      await user.click(within(row).getByRole("button", { name: /^More actions for/ }));
+      await user.click(screen.getByRole("menuitem", { name: "Delete check-in" }));
+      await vi.waitFor(() => expect(confirmAction).toHaveBeenCalled());
+      expect(removeCheckin).not.toHaveBeenCalled();
+      expect(showHud).not.toHaveBeenCalled();
+    });
+
+    it("offers Copy note only when the entry has a note", async () => {
+      const user = userEvent.setup();
+      render(<Journey {...withRemove(vi.fn())} />);
+      const [withNote, withoutNote] = screen.getAllByRole("listitem");
+      await user.click(within(withNote).getByRole("button", { name: /^More actions for/ }));
+      expect(screen.getByRole("menuitem", { name: "Copy note" })).toBeInTheDocument();
+      await user.keyboard("{Escape}");
+      await user.click(within(withoutNote).getByRole("button", { name: /^More actions for/ }));
+      expect(screen.queryByRole("menuitem", { name: "Copy note" })).toBeNull();
+      expect(screen.getByRole("menuitem", { name: "Delete check-in" })).toBeInTheDocument();
+    });
+
+    it("has a Delete swipe action on every row", () => {
+      render(<Journey {...withRemove(vi.fn())} />);
+      expect(document.querySelectorAll(".sw-act")).toHaveLength(2);
+    });
   });
 });

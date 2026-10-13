@@ -1,10 +1,16 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { FRAMEWORK } from "../data/framework.js";
 import { parseLocalDate } from "../lib/dates.js";
 import { changeSinceFirst, weeksActive } from "../lib/trends.js";
 import { MAX_WEEKS, groupLogByWeek, isNewcomer, weeklySeriesFor } from "../lib/journey.js";
+import { copyText } from "../lib/clipboard.js";
+import { shortLabel } from "../lib/contextMenu.js";
 import Sparkline from "./Sparkline.jsx";
 import EmptyState from "./EmptyState.jsx";
+import SwipeRow from "./SwipeRow.jsx";
+import ContextMenu from "./ContextMenu.jsx";
+import { confirmAction } from "./confirmAction.jsx";
+import { showHud } from "./showHud.jsx";
 
 const PRACTISED_LABEL = { yes: "Practised", some: "Practised some", no: "Not this week" };
 
@@ -22,6 +28,27 @@ function formatDate(value) {
 export default function Journey({ scores, quick, checkins }) {
   const list = checkins.checkins;
   const [showAll, setShowAll] = useState(false);
+  const titleRef = useRef(null);
+
+  // Asks first, then removes the entry. Stats and charts follow from the list.
+  const remove = async (c) => {
+    const ok = await confirmAction({
+      title: "Delete this check-in?",
+      message: "It leaves your Journey and its line. This cannot be undone.",
+      confirmLabel: "Delete check-in",
+      destructive: true,
+    });
+    if (!ok) return;
+    checkins.removeCheckin?.(c.id);
+    showHud("Check-in deleted");
+    // The row that held focus is gone; keep the person's place on the screen.
+    window.requestAnimationFrame(() => titleRef.current?.focus({ preventScroll: true }));
+  };
+
+  const copyNote = async (c) => {
+    if (await copyText(c.note)) showHud("Note copied");
+    else showHud("Could not copy", { icon: "info" });
+  };
 
   if (!list.length) {
     return (
@@ -65,7 +92,7 @@ export default function Journey({ scores, quick, checkins }) {
 
   return (
     <div className="jr">
-      <h2 className="t-large">Journey</h2>
+      <h2 className="t-large" ref={titleRef} tabIndex={-1}>Journey</h2>
 
       <div className="jr-stats">
         <div className="cd jr-stat">
@@ -110,18 +137,32 @@ export default function Journey({ scores, quick, checkins }) {
           </h4>
           <ul className="list">
             {w.entries.map(({ checkin: c, later }) => (
-              <li key={c.id} className="row jr-log">
-                <div className="jr-log-head">
-                  <span className="t-foot">{formatDate(c.date)}</span>
-                  <span className="t-head">{nameOf(c)}</span>
-                  {later && <span className="jr-later">Added later</span>}
-                </div>
-                <p className="t-sub">
-                  {PRACTISED_LABEL[c.practised] ?? c.practised} · Score {c.score}
-                </p>
-                {c.note && <p className="t-body jr-note">{c.note}</p>}
-                {practiceOf(c) && <p className="t-foot">{practiceOf(c)}</p>}
-              </li>
+              <SwipeRow
+                key={c.id}
+                as="li"
+                className="row"
+                actions={[{ label: "Delete", destructive: true, onSelect: () => remove(c) }]}
+              >
+                <ContextMenu
+                  className="jr-log"
+                  label={shortLabel(`${nameOf(c)}, ${formatDate(c.date)}`)}
+                  items={[
+                    c.note && { label: "Copy note", icon: "copy", onSelect: () => copyNote(c) },
+                    { label: "Delete check-in", icon: "trash", destructive: true, onSelect: () => remove(c) },
+                  ]}
+                >
+                  <div className="jr-log-head">
+                    <span className="t-foot">{formatDate(c.date)}</span>
+                    <span className="t-head">{nameOf(c)}</span>
+                    {later && <span className="jr-later">Added later</span>}
+                  </div>
+                  <p className="t-sub">
+                    {PRACTISED_LABEL[c.practised] ?? c.practised} · Score {c.score}
+                  </p>
+                  {c.note && <p className="t-body jr-note">{c.note}</p>}
+                  {practiceOf(c) && <p className="t-foot">{practiceOf(c)}</p>}
+                </ContextMenu>
+              </SwipeRow>
             ))}
           </ul>
         </section>

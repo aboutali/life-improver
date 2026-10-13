@@ -102,6 +102,25 @@ describe("useCheckins", () => {
     expect(result.current.checkins[1].note).toBe("");
   });
 
+  it("removes a check-in by id and persists", () => {
+    const { result } = renderHook(() => useCheckins());
+    act(() => {
+      result.current.addCheckin(make("a"));
+      result.current.addCheckin(make("b"));
+      result.current.addCheckin(make("c"));
+    });
+    act(() => result.current.removeCheckin("b"));
+    expect(result.current.checkins.map((c) => c.id)).toEqual(["a", "c"]);
+    expect(stored(KEYS.checkins).map((c) => c.id)).toEqual(["a", "c"]);
+  });
+
+  it("ignores an unknown id when removing", () => {
+    const { result } = renderHook(() => useCheckins());
+    act(() => result.current.addCheckin(make("a")));
+    act(() => result.current.removeCheckin("zzz"));
+    expect(result.current.checkins).toHaveLength(1);
+  });
+
   it("appends several check-ins added in the same tick", () => {
     const { result } = renderHook(() => useCheckins());
     act(() => {

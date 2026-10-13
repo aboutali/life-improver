@@ -26,8 +26,8 @@ Evidence: screenshots at 390 × 844 in light and dark, `e2e/quality.spec.js`, `e
 | Segmented control | Health, Fitness | Segmented track for "Did you practise?" | Match |
 | Native date and time pickers | Health, Calendar | Native inputs inside the calendar sheet | Match |
 | Switch | Settings | Native checkbox styled as a switch ("Hide numbers") | Close (no haptic tick) |
-| Long-press context menus on rows | Things | None | Gap |
-| Swipe actions on list rows | Things, Mail | None | Gap |
+| Long-press context menus on rows | Things | Long-press, right-click and a More actions button on Journey and Practices rows (S82-S84) | Match |
+| Swipe actions on list rows | Things, Mail | Swipe to delete on Journey rows, full swipe, rubber band, one open at a time (S80, S81) | Match |
 
 ## Look
 
@@ -54,6 +54,6 @@ Evidence: screenshots at 390 × 844 in light and dark, `e2e/quality.spec.js`, `e
 
 ## Summary
 
-- **Match:** 20 patterns. **Close:** 6. **Gap:** 5, of which 3 are platform limits of iOS web apps.
-- Closable gaps: long-press context menus and swipe actions on Journey and Practices rows, and web push reminders.
+- **Match:** 20 patterns. **Close:** 5. **Gap:** 3, all platform or backend limits: haptics, widgets and Live Activities, and push reminders without a server.
+- Swipe actions and long-press menus closed two earlier gaps. Push reminders need a push server, which this local-only app does not have.
 - A device walkthrough remains the final check for gesture feel, launch images and Dynamic Type at large sizes.

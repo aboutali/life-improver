@@ -1153,3 +1153,107 @@ a.row:active, button.row:active, .oh:active, .cat-oh:active, .cat-sublink:active
 @media (prefers-reduced-motion: reduce) {
   .btn:active, .sp:active, .dp:active, .cat-act:active, .ci-scores .ci-opt:active span, .bn:active svg { transform: none; }
 }
+
+/* === v2: Rows === */
+/* Swipe actions (SwipeRow.jsx) and long-press context menus (ContextMenu.jsx)
+   on Journey and Practices rows. */
+:root {
+  --danger-fill: #C53030;            /* red behind white text (swipe Delete) */
+  --sw-settle: 360ms;                /* matches SETTLE_MS in SwipeRow.jsx */
+  --ease-row: cubic-bezier(.32, .72, 0, 1);
+  --cm-dim: rgba(0, 0, 0, .26);
+  --cm-menu-bg: rgba(255, 255, 255, .82);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --danger-fill: #C2413A;
+    --cm-dim: rgba(0, 0, 0, .5);
+    --cm-menu-bg: rgba(48, 47, 44, .82);
+  }
+}
+
+/* -- Swipe row -- */
+.sw { position: relative; overflow: hidden; touch-action: pan-y; }
+.sw.row { display: block; padding: 0; min-height: 0; }
+.sw.row::before { z-index: 2; pointer-events: none; }
+.sw-body { position: relative; background: var(--surface); transform: translate3d(var(--sw-x, 0px), 0, 0); }
+@media (prefers-reduced-motion: no-preference) {
+  .sw:not(.is-dragging) .sw-body { transition: transform var(--sw-settle) var(--ease-row); }
+}
+.sw-actions {
+  position: absolute; top: 0; right: 0; bottom: 0;
+  width: max(0px, calc(-1 * var(--sw-x, 0px)));
+  display: flex; flex-direction: row-reverse; overflow: hidden;
+}
+.sw:not(.is-revealed) .sw-actions { visibility: hidden; }
+.sw-act {
+  flex: 1 1 0; min-width: 0; display: flex; align-items: center; justify-content: center;
+  border: none; cursor: pointer; font: inherit; font-size: var(--fs-callout); font-weight: 600;
+  background: var(--accent-fill); color: var(--on-accent);
+}
+.sw-act span { padding: 0 var(--s3); white-space: nowrap; overflow: hidden; }
+.sw-act.is-destructive { background: var(--danger-fill); }
+.sw-act:active { filter: brightness(.92); }
+.sw-act:focus-visible { outline: 2px solid var(--on-accent); outline-offset: -4px; }
+.sw.is-full .sw-act:not(:first-child) { flex-grow: 0; }
+
+/* -- Context menu trigger and row -- */
+.cm { position: relative; -webkit-touch-callout: none; }
+@media (hover: none) {
+  .cm { -webkit-user-select: none; user-select: none; }
+}
+.cm-more {
+  position: absolute; top: 4px; right: 4px; width: 44px; height: 44px;
+  display: grid; place-items: center; padding: 0; border: none; border-radius: var(--r-pill);
+  background: none; color: var(--text-2); cursor: pointer;
+}
+.cm-more:hover { color: var(--text); }
+.cm-more:active { background: var(--separator); }
+.cm-more[aria-expanded="true"] { color: var(--accent); }
+.jr-log.cm { padding-right: 52px; }
+.cat-row.cm { padding-right: 52px; }
+
+/* -- The lifted row, the backdrop and the menu -- */
+.cm-root { position: fixed; inset: 0; z-index: 250; }
+.cm-backdrop {
+  position: absolute; inset: 0; background: var(--cm-dim); touch-action: none;
+  -webkit-backdrop-filter: blur(14px) saturate(120%); backdrop-filter: blur(14px) saturate(120%);
+}
+.cm-lift {
+  position: absolute; overflow: hidden; pointer-events: none;
+  border-radius: var(--r-card); background: var(--surface);
+  box-shadow: 0 14px 44px rgba(0, 0, 0, .3);
+  transform: translateY(var(--cm-shift, 0px)) scale(1.02);
+}
+.cm-copy { width: 100%; height: 100%; margin: 0; box-sizing: border-box; }
+.cm-menu {
+  position: absolute; min-width: 232px; max-width: calc(100vw - 24px); overflow: hidden; outline: none;
+  border-radius: 14px; background: var(--cm-menu-bg);
+  -webkit-backdrop-filter: saturate(180%) blur(30px); backdrop-filter: saturate(180%) blur(30px);
+  box-shadow: var(--shadow-dialog), 0 0 0 .5px var(--separator);
+}
+.cm-item {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--s5);
+  width: 100%; min-height: 46px; padding: 0 var(--s4);
+  border: none; background: none; cursor: pointer; text-align: left;
+  font: inherit; font-size: var(--fs-body); color: var(--text);
+}
+.cm-cell + .cm-cell .cm-item { border-top: 1px solid var(--separator); }
+.cm-sep { height: 8px; background: var(--separator); }
+.cm-sep + .cm-item { border-top: 0; }
+.cm-item:hover, .cm-item:active { background: var(--separator); }
+.cm-item:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; background: var(--accent-tint); }
+.cm-item.is-destructive { color: var(--danger); }
+.cm-item-ic { display: inline-flex; flex-shrink: 0; }
+@media (prefers-reduced-motion: no-preference) {
+  .cm-backdrop { animation: cm-fade 200ms ease both; }
+  .cm-lift { animation: cm-lift 350ms var(--ease-row) both; }
+  .cm-menu { animation: cm-pop 320ms var(--ease-row) 40ms both; }
+}
+@keyframes cm-fade { from { opacity: 0; } }
+@keyframes cm-lift { from { transform: translateY(0) scale(1); box-shadow: 0 0 0 rgba(0, 0, 0, 0); } }
+@keyframes cm-pop { from { opacity: 0; transform: scale(.82); } }
+@media (prefers-reduced-transparency: reduce) {
+  .cm-backdrop { -webkit-backdrop-filter: none; backdrop-filter: none; background: var(--scrim); }
+  .cm-menu { -webkit-backdrop-filter: none; backdrop-filter: none; background: var(--surface); }
+}

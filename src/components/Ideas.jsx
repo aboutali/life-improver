@@ -2,6 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import { FRAMEWORK, TOTAL_IDEAS } from "../data/framework.js";
 import { makeFocus } from "../lib/recommend.js";
 import { toLocalDate } from "../lib/dates.js";
+import { copyText } from "../lib/clipboard.js";
+import { shortLabel } from "../lib/contextMenu.js";
+import ContextMenu from "./ContextMenu.jsx";
+import { showHud } from "./showHud.jsx";
 
 // "?d=<domainId>&s=<subIndex>" -> { domIdx, subIdx }, or null when not valid.
 function fromQuery(query) {
@@ -84,6 +88,11 @@ export default function Ideas({ focus, checkins, navigate, query }) {
     navigate?.("/");
   };
 
+  const copyPractice = async (idea) => {
+    if (await copyText(idea)) showHud("Practice copied");
+    else showHud("Could not copy", { icon: "info" });
+  };
+
   return (
     <div ref={rootRef}>
       <h2 className="t-large cat-title">{TOTAL_IDEAS} ways forward.</h2>
@@ -127,7 +136,16 @@ export default function Ideas({ focus, checkins, navigate, query }) {
           const isCurrent =
             current && current.domainId === dom.id && current.subIndex === subIdx && current.practiceIndex === i;
           return (
-            <div key={i} className="ir cat-row">
+            <ContextMenu
+              key={i}
+              className="ir cat-row"
+              label={shortLabel(idea)}
+              items={[
+                !isCurrent && { label: "Practise this week", icon: "plant", onSelect: () => adopt(i) },
+                { label: "Copy practice", icon: "copy", onSelect: () => copyPractice(idea) },
+                { label: "See sources", icon: "book", onSelect: () => navigate?.("/sources") },
+              ]}
+            >
               <span className="cat-num">{String(i + 1).padStart(2, "0")}</span>
               <span className="cat-text">{idea}</span>
               {isCurrent ? (
@@ -142,7 +160,7 @@ export default function Ideas({ focus, checkins, navigate, query }) {
                   Practise this week
                 </button>
               )}
-            </div>
+            </ContextMenu>
           );
         })}
       </div>
