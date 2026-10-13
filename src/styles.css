@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@300;400;600;700&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap');
 
 :root {
   /* ---- Design tokens (see docs/product/MOBILE_UI.md) ---- */
@@ -9,7 +9,9 @@
   --text: #1A1A1A;
   --text-2: #55534E;        /* secondary text, AA on surface and bg */
   --text-3: #75726B;        /* tertiary, only 15px and up */
-  --accent: #2B6CB0;
+  --accent: #2B6CB0;        /* accent for text, icons and outlines */
+  --accent-fill: #2B6CB0;   /* accent behind white text (filled buttons, selected chips) */
+  --on-accent: #FFFFFF;
   --accent-press: #1E4F82;
   --accent-tint: rgba(43, 108, 176, .10);
   --accent-tint-2: rgba(43, 108, 176, .16);
@@ -43,6 +45,9 @@
   --tabbar-h: 56px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --font-ui: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-serif: 'Source Serif 4', 'New York', ui-serif, Georgia, serif;
+  color-scheme: light dark;
 }
 
 @media (max-width: 699px) {
@@ -60,12 +65,41 @@
   }
 }
 
+/* Dark mode: follows the system setting. Elevation comes from lighter surfaces, not shadows. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #121110;
+    --surface: #1E1D1B;
+    --surface-2: #2A2926;
+    --text: #F2F1EE;
+    --text-2: #BDBAB3;
+    --text-3: #9A968E;
+    --accent: #7DB3EE;
+    --accent-press: #9CC5F2;
+    --accent-fill: #2F6FB5;
+    --accent-tint: rgba(125, 179, 238, .14);
+    --accent-tint-2: rgba(125, 179, 238, .22);
+    --danger: #FF7B72;
+    --danger-tint: rgba(255, 123, 114, .14);
+    --separator: rgba(255, 255, 255, .10);
+    --bar-bg: rgba(18, 17, 16, .82);
+    --shadow-card: 0 0 0 1px rgba(255, 255, 255, .04);
+    --shadow-bar: 0 -1px 0 var(--separator);
+  }
+}
+
+/* Reduce Transparency: solid bars instead of blurred ones. */
+@media (prefers-reduced-transparency: reduce) {
+  :root { --bar-bg: var(--bg); }
+  .bnav, .action-bar, .appbar { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+}
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 
 body {
-  font-family: 'Source Sans 3', -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+  font-family: var(--font-ui);
   font-size: var(--fs-body);
   line-height: 1.45;
   color: var(--text);
@@ -80,12 +114,12 @@ button, a, input, select, textarea, label { touch-action: manipulation; }
 button { font: inherit; color: inherit; }
 img, svg { display: block; }
 
-.sf { font-family: 'Source Serif 4', Georgia, serif; }
+.sf { font-family: var(--font-serif); }
 .bl { height: 3px; background: var(--accent); }
 
 /* Text roles */
-.t-large { font-family: 'Source Serif 4', Georgia, serif; font-size: var(--fs-large-title); line-height: 1.15; font-weight: 600; letter-spacing: -.01em; color: var(--text); }
-.t-title { font-family: 'Source Serif 4', Georgia, serif; font-size: var(--fs-title); line-height: 1.25; font-weight: 600; color: var(--text); }
+.t-large { font-family: var(--font-serif); font-size: var(--fs-large-title); line-height: 1.15; font-weight: 600; letter-spacing: -.01em; color: var(--text); }
+.t-title { font-family: var(--font-serif); font-size: var(--fs-title); line-height: 1.25; font-weight: 600; color: var(--text); }
 .t-head { font-size: var(--fs-headline); line-height: 1.35; font-weight: 600; color: var(--text); }
 .t-body { font-size: var(--fs-body); line-height: 1.45; color: var(--text); }
 .t-sub { font-size: var(--fs-callout); line-height: 1.4; color: var(--text-2); }
@@ -118,7 +152,7 @@ img, svg { display: block; }
   display: inline-flex; align-items: center; gap: var(--s2);
 }
 .sp:hover, .dp:hover { box-shadow: inset 0 0 0 1px var(--accent); }
-.sp.a, .dp.a { background: var(--accent); color: #fff; box-shadow: none; }
+.sp.a, .dp.a { background: var(--accent-fill); color: var(--on-accent); box-shadow: none; }
 .dp .prog { font-size: var(--fs-caption); font-weight: 700; opacity: .7; font-variant-numeric: tabular-nums; }
 @media (max-width: 699px) { .sp, .dp { min-height: 44px; } }
 
@@ -173,10 +207,10 @@ a.row:active, button.row:active { background: var(--surface-2); }
 }
 .btn:hover { background: var(--accent-tint-2); }
 .btn:active { transform: scale(.98); }
-.btn-primary { background: var(--accent); color: #fff; }
-.btn-primary:hover { background: var(--accent-press); color: #fff; }
+.btn-primary { background: var(--accent-fill); color: var(--on-accent); }
+.btn-primary:hover { background: var(--accent-fill); filter: brightness(1.08); color: var(--on-accent); }
 .btn-danger { background: var(--danger-tint); color: var(--danger); }
-.btn-danger:hover { background: var(--danger); color: #fff; }
+.btn-danger:hover { background: var(--danger); color: var(--surface); }
 .btn-block { display: flex; width: 100%; }
 .btn:disabled, .btn[aria-disabled="true"] { opacity: .45; cursor: not-allowed; transform: none; }
 @media (max-width: 699px) {
@@ -559,7 +593,7 @@ a.row:active, button.row:active { background: var(--surface-2); }
 .hd-mark { margin: 0; font-size: 19px; font-weight: 400; line-height: 1.2; }
 .hd-mark a {
   display: inline-flex; align-items: center; min-height: 48px; color: var(--text); text-decoration: none;
-  font-family: 'Source Serif 4', Georgia, serif; font-size: 19px; font-weight: 400; letter-spacing: -.005em;
+  font-family: var(--font-serif); font-size: 19px; font-weight: 400; letter-spacing: -.005em;
 }
 .hd-back, .hd-title { display: none; }
 .hd-settings {
