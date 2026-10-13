@@ -37,7 +37,7 @@ Status column: Done, Partial or Gap. Last verified 2026-10-13: lint clean, 443 u
 | I4 | Re-tapping the active tab scrolls to the top. Each tab keeps its scroll position. | e2e story. | Done |
 | I5 | In the installed app, swiping from the left edge goes back on pushed screens. | Unit test of the gesture logic; manual check on device. | Done (code and tests; confirm on a device) |
 | I6 | Inputs never trigger iOS zoom (16 px minimum). Native pickers for date and time. | Computed font size of inputs. | Done |
-| I7 | App shortcut "Check in" from the home-screen icon (manifest shortcuts). | Manifest contains the shortcut. | Done |
+| I7 | App shortcut "Check in" from the home-screen icon (manifest shortcuts). | Manifest contains the shortcut. | Done on Android and desktop. iOS ignores manifest shortcuts (platform limit). |
 
 ## 4. Accessibility
 
@@ -47,6 +47,10 @@ Status column: Done, Partial or Gap. Last verified 2026-10-13: lint clean, 443 u
 | A2 | Text scales with the browser text size up to 200 % without clipping. | Screenshot at 200 % root font size. | Done |
 | A3 | Every control is 44 × 44 pt or larger. | Automated size check per route. | Done |
 | A4 | VoiceOver order matches visual order; sheets announce as dialogs. | `role="dialog"`, `aria-modal`, labelled titles. | Done |
+
+## Benchmark
+
+See [IOS_BENCHMARK.md](./IOS_BENCHMARK.md) for a pattern-by-pattern comparison with Apple Health, Things 3 and Headspace.
 
 ## Verification
 
