@@ -1,5 +1,6 @@
 import { ROUTES, href } from "../lib/router.js";
 import { scrollToTop } from "../lib/navMotion.js";
+import { haptic } from "../lib/haptics.js";
 
 const TABS = ROUTES.filter((r) => r.tab);
 
@@ -88,6 +89,7 @@ const ICONS = {
 function onTabClick(e, active, path) {
   if (!active || (window.location.hash || "#/") !== href(path)) return;
   e.preventDefault();
+  haptic("light");
   scrollToTop();
 }
 

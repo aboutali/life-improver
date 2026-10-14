@@ -4,6 +4,7 @@ import ShareButton from "./ShareButton.jsx";
 import { confirmAction } from "./confirmAction.jsx";
 import { makeFocus } from "../lib/recommend.js";
 import { toLocalDate } from "../lib/dates.js";
+import { haptic } from "../lib/haptics.js";
 
 // Tier 1..5 for a 1..10 score: Critical, Neglected, Adequate, Strong, Thriving.
 const tierOf = (sc) => (sc <= 2 ? 1 : sc <= 4 ? 2 : sc <= 6 ? 3 : sc <= 8 ? 4 : 5);
@@ -92,7 +93,11 @@ export default function SelfAssessment({ scores, focus, checkins, navigate }) {
                 style={{ "--tier": color || "var(--text-3)", "--pct": `${(((sc || 5) - 1) / 9) * 100}%` }}
                 aria-label={`${s.name} score`}
                 aria-valuetext={sc ? `${sc} — ${label}` : "unscored"}
-                onChange={(e) => scores.set(dom.id, si, Number(e.target.value))}
+                onChange={(e) => {
+                  const next = Number(e.target.value);
+                  if (tierOf(next) !== tierOf(sc || 5)) haptic("light");
+                  scores.set(dom.id, si, next);
+                }}
               />
               <div className="cat-readout">
                 {sc ? (

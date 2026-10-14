@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { haptic } from "../lib/haptics.js";
 import { backdropOpacity, dragOffset, shouldDismiss, velocityFrom } from "../lib/sheetDrag.js";
 
 // How long the slide-out takes. Matches --sheet-out in the Sheets section.
@@ -253,6 +254,7 @@ export default function Sheet({
     panel.classList.remove("is-dragging");
     const velocity = cancelled ? 0 : velocityFrom(d.samples, e.timeStamp);
     if (!cancelled && shouldDismiss({ dy: d.dy, height: d.height, velocity })) {
+      haptic("light");
       if (onCloseRef.current) onCloseRef.current();
       return;
     }

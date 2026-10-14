@@ -46,6 +46,7 @@ export default function ShareButton({ domains, overall }) {
           id={checkId}
           className="switch"
           type="checkbox"
+          switch=""
           checked={hideScores}
           onChange={(e) => setHideScores(e.target.checked)}
         />

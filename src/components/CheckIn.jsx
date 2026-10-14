@@ -7,6 +7,7 @@ import { nextPractice } from "../lib/recommend.js";
 import { isNewcomer, nextCheckinLabel } from "../lib/journey.js";
 import { isCheckinOpen } from "../lib/rhythm.js";
 import { href } from "../lib/router.js";
+import { haptic } from "../lib/haptics.js";
 import Sparkline from "./Sparkline.jsx";
 import EmptyState from "./EmptyState.jsx";
 
@@ -48,7 +49,10 @@ function Segmented({ legend, name, options, value, onChange, className = "" }) {
               name={name}
               value={o.value}
               checked={value === o.value}
-              onChange={() => onChange(o.value)}
+              onChange={() => {
+                haptic("light");
+                onChange(o.value);
+              }}
             />
             <span>{o.label}</span>
           </label>
@@ -152,6 +156,7 @@ export default function CheckIn({ scores, quick, focus, checkins, navigate }) {
   const save = (e) => {
     e.preventDefault();
     if (!ready) return;
+    haptic("success");
     const entry = {
       id: new Date().toISOString(),
       date: today,
@@ -239,7 +244,10 @@ export default function CheckIn({ scores, quick, focus, checkins, navigate }) {
                   name="score"
                   value={n}
                   checked={score === n}
-                  onChange={() => setScore(n)}
+                  onChange={() => {
+                    haptic("light");
+                    setScore(n);
+                  }}
                 />
                 <span>{n}</span>
               </label>

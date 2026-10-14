@@ -325,3 +325,39 @@ test("safe areas: the app bar and the tab bar pad by the device insets", async (
   expect(found.appBar.join(" ")).toContain("--safe-top");
   expect(found.tabBar.join(" ")).toContain("--safe-bottom");
 });
+
+test("S86: on iPhone a check-in tap toggles one hidden switch (the iOS 18 haptic), and Settings can turn it off", async ({ browser }, testInfo) => {
+  const { context, page } = await iphone(browser, testInfo);
+  // Safari has no navigator.vibrate; Chromium does, so take it away.
+  await page.addInitScript(() => {
+    Object.defineProperty(Navigator.prototype, "vibrate", { value: undefined, configurable: true });
+  });
+  const { expectNoErrors } = trackErrors(page);
+  await open(page, "/checkin");
+
+  const hidden = page.locator("label[data-haptic] input[type=checkbox][switch]");
+  await expect(hidden).toHaveCount(0);
+  await page.locator("label.ci-opt", { hasText: /^7$/ }).tap();
+  await expect(hidden).toHaveCount(1);
+  await expect(hidden).toHaveAttribute("tabindex", "-1");
+  const first = await hidden.evaluate((el) => el.checked);
+  await page.locator("label.ci-opt", { hasText: /^8$/ }).tap();
+  await expect(hidden).toHaveCount(1);
+  expect(await hidden.evaluate((el) => el.checked)).toBe(!first);
+  await expect(page.getByRole("radio", { name: "8" })).toBeChecked(); // focus and choice are untouched
+
+  // Settings: Haptics is a native switch; off means a tap no longer toggles it.
+  await go(page, "/settings");
+  const toggle = page.getByRole("checkbox", { name: "Haptics" });
+  await expect(toggle).toBeChecked();
+  await toggle.evaluate((el) => el.click());
+  await expect(toggle).not.toBeChecked();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("life-improver:prefs:v1")))).toEqual({ haptics: false });
+  const before = await hidden.evaluate((el) => el.checked);
+  await go(page, "/checkin");
+  await page.locator("label.ci-opt", { hasText: /^9$/ }).tap();
+  expect(await hidden.evaluate((el) => el.checked)).toBe(before);
+
+  expectNoErrors();
+  await context.close();
+});

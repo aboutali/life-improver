@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { flickVelocity } from "../lib/gestures.js";
 import { actionsWidth, decideRelease, lockAxis, restingOffset, swipeOffset } from "../lib/swipe.js";
+import { haptic } from "../lib/haptics.js";
 import { registerOpenRow, unregisterRow } from "../lib/swipeRegistry.js";
 
 const SETTLE_MS = 360; // matches --sw-settle in the Rows section
@@ -131,7 +132,10 @@ export default function SwipeRow({ as: Tag = "div", className = "", bodyClassNam
     if (s.samples.length > 12) s.samples.shift();
     const x = swipeOffset({ startOffset: s.start, dx, aw, rowWidth: s.width });
     setX(x);
-    rootRef.current.classList.toggle("is-full", decideRelease({ startOffset: s.start, dx, aw, rowWidth: s.width }) === "full");
+    const full = decideRelease({ startOffset: s.start, dx, aw, rowWidth: s.width }) === "full";
+    // One tick as the finger crosses the full-swipe line, in either direction.
+    if (full !== rootRef.current.classList.contains("is-full")) haptic("medium");
+    rootRef.current.classList.toggle("is-full", full);
   };
 
   const runAction = useCallback(
@@ -213,7 +217,10 @@ export default function SwipeRow({ as: Tag = "div", className = "", bodyClassNam
               type="button"
               className={`sw-act${a.destructive ? " is-destructive" : ""}`}
               tabIndex={revealed ? 0 : -1}
-              onClick={() => runAction(a)}
+              onClick={() => {
+                haptic("medium");
+                runAction(a);
+              }}
             >
               <span>{a.label}</span>
             </button>

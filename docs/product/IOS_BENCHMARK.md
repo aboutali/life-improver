@@ -25,7 +25,7 @@ Evidence: screenshots at 390 × 844 in light and dark, `e2e/quality.spec.js`, `e
 | HUD confirmation | Things ("Added") | HUD toast with check mark | Match |
 | Segmented control | Health, Fitness | Segmented track for "Did you practise?" | Match |
 | Native date and time pickers | Health, Calendar | Native inputs inside the calendar sheet | Match |
-| Switch | Settings | Native checkbox styled as a switch ("Hide numbers") | Close (no haptic tick) |
+| Switch | Settings | Native `<input switch>` ("Hide numbers", "Haptics"); styled fallback in other browsers | Match |
 | Long-press context menus on rows | Things | Long-press, right-click and a More actions button on Journey and Practices rows (S82-S84) | Match |
 | Swipe actions on list rows | Things, Mail | Swipe to delete on Journey rows, full swipe, rubber band, one open at a time (S80, S81) | Match |
 
@@ -45,7 +45,7 @@ Evidence: screenshots at 390 × 844 in light and dark, `e2e/quality.spec.js`, `e
 | Pattern | Reference | Life Improver | Verdict |
 |---|---|---|---|
 | Press states within one frame | All | Scale or dim on every control | Match |
-| Haptic feedback | Things, Fitness | Not available to web apps on iOS | Gap (platform limit) |
+| Haptic feedback | Things, Fitness | System switch haptic on iOS 18+, vibration on Android; not the full UIFeedbackGenerator range. Setting in Settings (on by default) | Close |
 | Reminders as notifications | Headspace | Calendar files; web push is backlog item B4 | Gap |
 | Home-screen widget, Live Activity | Fitness, Headspace | Not available to web apps | Gap (platform limit) |
 | Home-screen quick action | Things | Manifest shortcuts "Check in" and "Journey" | Close (Android and desktop; iOS ignores manifest shortcuts) |
@@ -54,6 +54,6 @@ Evidence: screenshots at 390 × 844 in light and dark, `e2e/quality.spec.js`, `e
 
 ## Summary
 
-- **Match:** 20 patterns. **Close:** 5. **Gap:** 3, all platform or backend limits: haptics, widgets and Live Activities, and push reminders without a server.
-- Swipe actions and long-press menus closed two earlier gaps. Push reminders need a push server, which this local-only app does not have.
+- **Match:** 21 patterns. **Close:** 5. **Gap:** 2, both platform or backend limits: widgets and Live Activities, and push reminders without a server.
+- Swipe actions, long-press menus and haptics (a system tick on iOS 18+, vibration on Android) closed earlier gaps. Push reminders need a push server, which this local-only app does not have.
 - A device walkthrough remains the final check for gesture feel, launch images and Dynamic Type at large sizes.

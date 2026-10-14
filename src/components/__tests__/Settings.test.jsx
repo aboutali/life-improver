@@ -227,3 +227,17 @@ describe("Settings", () => {
     await waitFor(() => expect(screen.queryByRole("button", { name: "Install" })).not.toBeInTheDocument());
   });
 });
+
+describe("Settings: Haptics", () => {
+  it("is a native switch, on by default, and the choice is stored", async () => {
+    localStorage.clear();
+    const user = userEvent.setup();
+    render(<Settings {...makeProps()} />);
+    const box = screen.getByRole("checkbox", { name: "Haptics" });
+    expect(box).toHaveAttribute("switch");
+    expect(box).toBeChecked();
+    await user.click(box);
+    expect(box).not.toBeChecked();
+    expect(JSON.parse(localStorage.getItem(KEYS.prefs))).toEqual({ haptics: false });
+  });
+});

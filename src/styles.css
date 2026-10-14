@@ -639,6 +639,9 @@ a.row:active, button.row:active { background: var(--surface-2); }
 .set .list .row { min-height: 52px; }
 .set-foot { margin: calc(-1 * var(--s1)) var(--s4) 0; }
 .set-file { justify-content: space-between; }
+.set-switch { cursor: pointer; }
+.set-switch .switch { margin-left: auto; }
+.set-switch:focus-within { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: var(--r-card); }
 .set-file-label { cursor: pointer; margin-right: auto; }
 .set-file-label::after { content: ""; position: absolute; inset: 0; }
 .set-file:focus-within { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: var(--r-card); }
@@ -661,6 +664,12 @@ a.row:active, button.row:active { background: var(--surface-2); }
 }
 .switch:checked { background: var(--accent); }
 .switch:checked::after { transform: translateX(20px); }
+/* Where the browser draws a native switch (Safari, iOS 18 haptic included), let it. */
+@supports (appearance: switch) {
+  .switch[switch] { -webkit-appearance: switch; appearance: switch; width: auto; height: auto; background: none; transition: none; accent-color: var(--accent-fill); }
+  .switch[switch]::after { content: none; }
+  .switch[switch]:checked { background: none; }
+}
 .share-btn:disabled { opacity: .7; cursor: progress; }
 .share-msg { min-height: 20px; margin-top: var(--s2); text-align: center; }
 .share-msg:empty { min-height: 0; margin-top: 0; }
@@ -1139,7 +1148,7 @@ main h2[tabindex="-1"]:focus { outline: none; }
 .btn:active, .btn-primary:active, .sp:active, .dp:active, .cat-act:active { filter: brightness(.92); }
 .btn-text:active, .ti:active, .hd-mark a:active, .app-foot a:active { opacity: .55; }
 a.row:active, button.row:active, .oh:active, .cat-oh:active, .cat-sublink:active,
-.set-file:active, .share-check:active { background: var(--separator); }
+.set-file:active, .set-switch:active, .share-check:active { background: var(--separator); }
 .fp-opt[aria-current="true"]:active { background: var(--accent-tint-2); }
 .ci-seg .ci-opt:active input:not(:checked) + span { background: var(--fill-track); }
 .ci-scores .ci-opt:active input:not(:checked) + span { background: var(--fill-track); }

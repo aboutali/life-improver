@@ -6,6 +6,8 @@ import { toLocalDate } from "../lib/dates.js";
 import { href } from "../lib/router.js";
 import { confirmAction } from "./confirmAction.jsx";
 import { showHud } from "./showHud.jsx";
+import { usePrefs } from "../hooks/usePrefs.js";
+import { haptic } from "../lib/haptics.js";
 
 // `beforeinstallprompt` fires once, early. Capture it at module load so the
 // Install button still works when the person opens Settings later.
@@ -63,6 +65,7 @@ const GLYPHS = {
   install: <><rect x="4.5" y="4.5" width="15" height="15" rx="3.5" /><path d="M12 8.5v7M8.5 12h7" /></>,
   grid: <><rect x="4.5" y="4.5" width="6" height="6" rx="1.6" /><rect x="13.5" y="4.5" width="6" height="6" rx="1.6" /><rect x="4.5" y="13.5" width="6" height="6" rx="1.6" /><rect x="13.5" y="13.5" width="6" height="6" rx="1.6" /></>,
   book: <><path d="M5.5 6A2 2 0 0 1 7.5 4H19v13H7.5a2 2 0 0 0-2 2z" /><path d="M5.5 19a2 2 0 0 0 2 2H19" /></>,
+  haptic: <><path d="M9 5.5v13M15 5.5v13" /><path d="M5.5 9v6M18.5 9v6" /></>,
   trash: <><path d="M5 7h14M10 7V5h4v2M7 7l.9 12h8.2L17 7" /></>,
 };
 
@@ -79,6 +82,8 @@ function Tile({ tone, glyph }) {
 export default function Settings({ scores, quick, focus, checkins, navigate }) {
   const [importError, setImportError] = useState("");
   const installPrompt = useInstallPrompt();
+  const { prefs, setHaptics } = usePrefs();
+  const hapticsId = useId();
   const noteId = useId();
   const badCopies = useMemo(() => readBadCopies(), []);
   const hasBad = Object.keys(badCopies).length > 0;
@@ -172,6 +177,28 @@ export default function Settings({ scores, quick, focus, checkins, navigate }) {
         <h2 className="t-large">Settings &amp; privacy</h2>
         <p className="t-sub">Your garden stays with you. Keep a copy, or begin again.</p>
       </div>
+
+      <section aria-labelledby="set-feel">
+        <h3 className="t-eyebrow list-title" id="set-feel">Feel</h3>
+        <div className="list">
+          <label className="row set-switch" htmlFor={hapticsId}>
+            <Tile tone="accent" glyph="haptic" />
+            <span>Haptics</span>
+            <input
+              id={hapticsId}
+              className="switch"
+              type="checkbox"
+              switch=""
+              checked={prefs.haptics}
+              onChange={(e) => {
+                setHaptics(e.target.checked);
+                if (e.target.checked) haptic("light");
+              }}
+            />
+          </label>
+        </div>
+        <p className="t-foot set-foot">A small tap under your finger when you choose, save or swipe. Works on iPhone with iOS 18 and on Android.</p>
+      </section>
 
       <section aria-labelledby="set-data">
         <h3 className="t-eyebrow list-title" id="set-data">Your data</h3>

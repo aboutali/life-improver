@@ -286,3 +286,23 @@ describe("usePersistentState damage handling", () => {
     expect(getStorageStatus().available).toBe(false);
   });
 });
+
+describe("usePrefs", () => {
+  it("defaults to haptics on, persists a change and shares it with haptics.js", async () => {
+    const { usePrefs } = await import("../usePrefs.js");
+    const { hapticsEnabled } = await import("../../lib/haptics.js");
+    const { result } = renderHook(() => usePrefs());
+    expect(result.current.prefs).toEqual({ haptics: true });
+    act(() => result.current.setHaptics(false));
+    expect(result.current.prefs.haptics).toBe(false);
+    expect(stored(KEYS.prefs)).toEqual({ haptics: false });
+    expect(hapticsEnabled()).toBe(false);
+  });
+
+  it("loads a stored preference", async () => {
+    const { usePrefs } = await import("../usePrefs.js");
+    localStorage.setItem(KEYS.prefs, JSON.stringify({ haptics: false }));
+    const { result } = renderHook(() => usePrefs());
+    expect(result.current.prefs.haptics).toBe(false);
+  });
+});

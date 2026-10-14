@@ -6,6 +6,7 @@ export const KEYS = {
   focus: "life-improver:focus:v1",
   checkins: "life-improver:checkins:v1",
   meta: "life-improver:meta:v1",
+  prefs: "life-improver:prefs:v1",
 };
 
 const APP = "life-improver";
@@ -244,6 +245,24 @@ export function sanitizeFocus(v) {
 export function sanitizeCheckins(v) {
   if (!Array.isArray(v)) return undefined;
   return v.filter(isValidCheckin).map((c) => ({ ...c, note: c.note.slice(0, MAX_NOTE) }));
+}
+
+// Preferences: { haptics: boolean }. Anything else is dropped; haptics default on.
+export const DEFAULT_PREFS = { haptics: true };
+export function sanitizePrefs(v) {
+  if (!isObject(v)) return undefined;
+  return { haptics: typeof v.haptics === "boolean" ? v.haptics : DEFAULT_PREFS.haptics };
+}
+
+// Read the stored preferences without React (for plain modules like haptics.js).
+export function readPrefs(storage = typeof localStorage === "undefined" ? null : localStorage) {
+  try {
+    const raw = storage && storage.getItem(KEYS.prefs);
+    const cleaned = sanitizePrefs(raw ? JSON.parse(raw) : null);
+    return cleaned === undefined ? { ...DEFAULT_PREFS } : cleaned;
+  } catch {
+    return { ...DEFAULT_PREFS };
+  }
 }
 
 const SANITIZERS = {

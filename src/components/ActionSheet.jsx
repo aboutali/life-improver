@@ -1,5 +1,6 @@
 import { useId, useState } from "react";
 import Sheet from "./Sheet.jsx";
+import { haptic } from "../lib/haptics.js";
 
 // iOS-style action sheet: one grouped card holding a title, a message and the
 // options, and a separate Cancel button below it. A destructive option is red.
@@ -56,6 +57,7 @@ export default function ActionSheet({
 export function ConfirmSheet({ title, message, confirmLabel, cancelLabel, destructive, onResult, onGone }) {
   const [open, setOpen] = useState(true);
   const choose = (value) => {
+    if (value && destructive) haptic("warning");
     setOpen(false);
     onResult(value);
   };
