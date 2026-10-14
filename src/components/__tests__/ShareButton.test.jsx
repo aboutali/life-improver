@@ -3,6 +3,9 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import ShareButton from "../ShareButton.jsx";
 import { drawShareCard } from "../../lib/shareCard.js";
+import { showHud } from "../showHud.jsx";
+
+vi.mock("../showHud.jsx", () => ({ showHud: vi.fn() }));
 
 const domains = [
   { name: "Body", avg: 4.5 },
@@ -28,6 +31,7 @@ function makeCtx() {
 
 let ctx;
 beforeEach(() => {
+  showHud.mockClear();
   ctx = makeCtx();
   HTMLCanvasElement.prototype.getContext = vi.fn(() => ctx);
   HTMLCanvasElement.prototype.toBlob = vi.fn((cb) => cb(new Blob(["png"], { type: "image/png" })));
@@ -88,6 +92,7 @@ describe("ShareButton", () => {
     await user.click(screen.getByRole("button", { name: "Share image" }));
     await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
     expect(await screen.findByText(/saved to your downloads/i)).toBeInTheDocument();
+    expect(showHud).toHaveBeenCalledWith("Image saved");
     expect(screen.getByRole("button", { name: "Share image" })).toBeEnabled();
   });
 
@@ -104,6 +109,7 @@ describe("ShareButton", () => {
     expect(arg.files[0].name).toMatch(/^life-improver-\d{4}-\d{2}-\d{2}\.png$/);
     await waitFor(() => expect(screen.getByRole("button", { name: "Share image" })).toBeEnabled());
     expect(click).not.toHaveBeenCalled();
+    expect(showHud).not.toHaveBeenCalled();
     expect(screen.getByRole("alert")).toBeEmptyDOMElement();
   });
 

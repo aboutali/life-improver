@@ -12,21 +12,32 @@ import { toLocalDate, isoWeek } from "../../lib/dates.js";
 const FOCUS = { domainId: 1, subIndex: 0, practiceIndex: 3, startedAt: "2026-10-01", skipped: [] };
 const SUB = FRAMEWORK[0].subs[0];
 
-function Harness({ navigate }) {
+function Harness({ navigate, quick = {} }) {
   const scores = useScores();
   const focus = useFocus();
   const checkins = useCheckins();
-  return <CheckIn scores={scores} quick={{}} focus={focus} checkins={checkins} navigate={navigate} />;
+  return <CheckIn scores={scores} quick={{ quick }} focus={focus} checkins={checkins} navigate={navigate} />;
 }
 
 const stored = (key) => JSON.parse(localStorage.getItem(key));
 
 describe("CheckIn", () => {
-  it("shows a calm empty state without a focus", async () => {
-    const navigate = vi.fn();
-    render(<Harness navigate={navigate} />);
-    await userEvent.click(screen.getByRole("button", { name: "Choose a focus first" }));
-    expect(navigate).toHaveBeenCalledWith("/");
+  it("links an empty state to Today for someone with ratings", () => {
+    localStorage.setItem(KEYS.scores, JSON.stringify({ "1-0": 4 }));
+    render(<Harness navigate={vi.fn()} />);
+    expect(screen.getByRole("link", { name: "Choose a focus first" })).toHaveAttribute("href", "#/");
+  });
+
+  it("links an empty state to the welcome for a newcomer", () => {
+    render(<Harness navigate={vi.fn()} />);
+    expect(screen.getByRole("link", { name: "Begin with a one-minute welcome" })).toHaveAttribute("href", "#/welcome");
+    expect(screen.getByText("There is nothing to check in on yet. A one-minute welcome sets your first focus.")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Choose a focus first" })).not.toBeInTheDocument();
+  });
+
+  it("treats quick scores as not being a newcomer", () => {
+    render(<Harness navigate={vi.fn()} quick={{ 1: 5 }} />);
+    expect(screen.getByRole("link", { name: "Choose a focus first" })).toHaveAttribute("href", "#/");
   });
 
   it("shows the focus and disables save until both questions are answered", async () => {
@@ -77,11 +88,11 @@ describe("CheckIn", () => {
   it("shows the empty state when the focus points to a missing domain or sub", () => {
     localStorage.setItem(KEYS.focus, JSON.stringify({ ...FOCUS, domainId: 999 }));
     const { unmount } = render(<Harness navigate={vi.fn()} />);
-    expect(screen.getByRole("button", { name: "Choose a focus first" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Begin with a one-minute welcome" })).toBeInTheDocument();
     unmount();
     localStorage.setItem(KEYS.focus, JSON.stringify({ ...FOCUS, subIndex: 99 }));
     render(<Harness navigate={vi.fn()} />);
-    expect(screen.getByRole("button", { name: "Choose a focus first" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Begin with a one-minute welcome" })).toBeInTheDocument();
   });
 
   it("derives the week from the same date it saves", async () => {
@@ -99,11 +110,32 @@ describe("CheckIn", () => {
     }
   });
 
-  it("pre-selects the current score", () => {
+  it("does not pre-select a score, and hints at the last one", () => {
     localStorage.setItem(KEYS.focus, JSON.stringify(FOCUS));
     localStorage.setItem(KEYS.scores, JSON.stringify({ "1-0": 4 }));
     render(<Harness navigate={vi.fn()} />);
-    expect(screen.getByLabelText("4")).toBeChecked();
+    for (let n = 1; n <= 10; n++) expect(screen.getByLabelText(String(n))).not.toBeChecked();
+    expect(screen.getByText("Last time: 4")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save check-in" })).toBeDisabled();
+  });
+
+  it("falls back to the latest check-in for the hint, and shows none without one", () => {
+    localStorage.setItem(KEYS.focus, JSON.stringify(FOCUS));
+    const { unmount } = render(<Harness navigate={vi.fn()} />);
+    expect(screen.queryByText(/Last time/)).not.toBeInTheDocument();
+    unmount();
+    localStorage.setItem(
+      KEYS.checkins,
+      JSON.stringify([{ id: "2026-09-01T10:00:00.000Z", date: "2026-09-01", week: "2026-W36", domainId: 1, subIndex: 0, practiceIndex: 1, practised: "yes", score: 5, note: "" }])
+    );
+    render(<Harness navigate={vi.fn()} />);
+    expect(screen.getByText("Last time: 5")).toBeInTheDocument();
+  });
+
+  it("gives the note field the visible focus outline class", () => {
+    localStorage.setItem(KEYS.focus, JSON.stringify(FOCUS));
+    render(<Harness navigate={vi.fn()} />);
+    expect(screen.getByLabelText(/A note/)).toHaveClass("ci-note");
   });
 
   it("counts the note and caps it at 500 characters", async () => {
@@ -122,6 +154,9 @@ describe("CheckIn", () => {
     await userEvent.click(screen.getByLabelText("7"));
     await userEvent.type(screen.getByLabelText(/A note/), "Slow start");
     await userEvent.click(screen.getByRole("button", { name: "Save check-in" }));
+    expect(screen.getByText(/^Next check-in: Sun \d{1,2} [A-Z][a-z]{2}$/)).toBeInTheDocument();
+    expect(screen.getByText("Your line starts here.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Try a different practice" })).toBeInTheDocument();
 
     const saved = stored(KEYS.checkins);
     expect(saved).toHaveLength(1);
@@ -138,7 +173,7 @@ describe("CheckIn", () => {
     expect(stored(KEYS.scores)["1-0"]).toBe(7);
 
     expect(screen.getByText(/A first mark on the page/)).toBeInTheDocument();
-    expect(screen.getByRole("img")).toBeInTheDocument();
+    expect(screen.queryByRole("img")).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Keep this practice" }));
     expect(navigate).toHaveBeenCalledWith("/");
@@ -159,14 +194,17 @@ describe("CheckIn", () => {
     expect(screen.getByText(/Higher than where you began/)).toBeInTheDocument();
   });
 
-  it("swaps the practice from the reward view", async () => {
+  it("offers a smaller practice after a week without it", async () => {
     localStorage.setItem(KEYS.focus, JSON.stringify(FOCUS));
     const navigate = vi.fn();
     render(<Harness navigate={navigate} />);
     await userEvent.click(screen.getByLabelText("Not this week"));
     await userEvent.click(screen.getByLabelText("3"));
     await userEvent.click(screen.getByRole("button", { name: "Save check-in" }));
-    await userEvent.click(screen.getByRole("button", { name: "Swap practice" }));
+    expect(screen.getByText("A week without it happens. Smaller is fine.")).toBeInTheDocument();
+    expect(screen.queryByText(/A first mark on the page/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Try a different practice" })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Try a smaller practice" }));
     const next = stored(KEYS.focus);
     expect(next.practiceIndex).not.toBe(3);
     expect(next.skipped).toContain(3);
@@ -182,5 +220,16 @@ describe("CheckIn", () => {
     render(<Harness navigate={vi.fn()} />);
     expect(screen.getByText("You already checked in this week. A new entry adds to it.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save check-in" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Back to Today" })).toHaveAttribute("href", "#/");
+  });
+
+  it("says so when the check-in is early, and not once it has opened", () => {
+    localStorage.setItem(KEYS.focus, JSON.stringify({ ...FOCUS, startedAt: toLocalDate() }));
+    const early = render(<Harness navigate={vi.fn()} />);
+    expect(screen.getByText("You started recently. Check in early only if you like.")).toBeInTheDocument();
+    early.unmount();
+    localStorage.setItem(KEYS.focus, JSON.stringify({ ...FOCUS, startedAt: "2020-01-01" }));
+    render(<Harness navigate={vi.fn()} />);
+    expect(screen.queryByText(/You started recently/)).not.toBeInTheDocument();
   });
 });

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { suggestFocus, suggestPractice, nextPractice } from "../recommend.js";
+import { suggestFocus, suggestPractice, nextPractice, pickerSuggestions, lowerSubNudge } from "../recommend.js";
 
 // A small framework: two domains, ids 1 and 5, to prove ids are not positions.
 const fw = [
@@ -173,4 +173,86 @@ describe("nextPractice with a damaged skipped list", () => {
       expect(next.practiceIndex).toBe(1);
     }
   );
+});
+
+import { makeFocus } from "../recommend.js";
+
+describe("makeFocus", () => {
+  it("adopts a given practice and records the origin", () => {
+    const f = makeFocus({ domainId: 1, subIndex: 2, practiceIndex: 5, origin: "practice", today: "2026-10-07" });
+    expect(f).toEqual({ domainId: 1, subIndex: 2, practiceIndex: 5, startedAt: "2026-10-07", skipped: [], origin: "practice" });
+  });
+  it("suggests a practice when none is given", () => {
+    const f = makeFocus({ domainId: 1, subIndex: 0, today: "2026-10-07" });
+    expect(f.practiceIndex).toBe(0);
+    expect(f.origin).toBe("suggested");
+  });
+});
+
+describe("pickerSuggestions", () => {
+  const big = [
+    { id: 1, domain: "Body", subs: [{ name: "A", ideas: ["x"] }, { name: "B", ideas: ["x"] }, { name: "C", ideas: ["x"] }] },
+    { id: 2, domain: "Mind", subs: [{ name: "D", ideas: ["x"] }, { name: "E", ideas: ["x"] }] },
+    { id: 3, domain: "Heart", subs: [{ name: "F", ideas: ["x"] }] },
+    { id: 4, domain: "Craft", subs: [{ name: "G", ideas: ["x"] }] },
+  ];
+  const names = (r) => r.map((s) => s.name);
+
+  it("lists the three lowest full scores, ties by order", () => {
+    const r = pickerSuggestions({
+      scores: { "1-0": 5, "1-1": 2, "1-2": 5, "2-0": 5, "2-1": 9 },
+      quick: { 3: 1 },
+      framework: big,
+    });
+    expect(names(r)).toEqual(["B", "A", "C"]);
+    expect(r.every((s) => s.source === "full")).toBe(true);
+    expect(r[0]).toMatchObject({ domainId: 1, subIndex: 1, domainName: "Body", score: 2 });
+  });
+
+  it("tops up with sub 0 of the lowest quick domains not yet represented", () => {
+    const r = pickerSuggestions({
+      scores: { "1-1": 2 },
+      quick: { 1: 1, 2: 6, 3: 3, 4: 3 },
+      framework: big,
+    });
+    // Body is represented; Heart and Craft tie at 3 (earlier first), Mind is left out.
+    expect(names(r)).toEqual(["B", "F", "G"]);
+    expect(r[1]).toMatchObject({ source: "quick", subIndex: 0, score: 3 });
+  });
+
+  it("uses quick scores alone, and returns fewer than three when that is all there is", () => {
+    expect(names(pickerSuggestions({ quick: { 2: 4, 1: 7 }, framework: big }))).toEqual(["D", "A"]);
+    expect(pickerSuggestions({ framework: big })).toEqual([]);
+  });
+
+  it("marks the current sub", () => {
+    const r = pickerSuggestions({ scores: { "1-1": 2 }, framework: big, current: { domainId: 1, subIndex: 1 } });
+    expect(r[0].current).toBe(true);
+  });
+});
+
+describe("lowerSubNudge", () => {
+  const focus = { domainId: 1, subIndex: 0 };
+
+  it("returns the lowest sub when it is 2 or more below the focus sub", () => {
+    expect(lowerSubNudge({ scores: { "1-0": 6, "1-1": 4, "5-0": 3 }, focus, framework: fw })).toEqual({
+      domainId: 5, subIndex: 0, score: 3,
+    });
+  });
+  it("returns null for a gap under 2", () => {
+    expect(lowerSubNudge({ scores: { "1-0": 6, "1-1": 5 }, focus, framework: fw })).toBeNull();
+  });
+  it("needs a full score on the focus sub", () => {
+    expect(lowerSubNudge({ scores: { "1-1": 1 }, focus, framework: fw })).toBeNull();
+    expect(lowerSubNudge({ scores: {}, focus: null, framework: fw })).toBeNull();
+  });
+  it("honours a dismissal until that sub's score changes", () => {
+    const scores = { "1-0": 6, "1-1": 3 };
+    const dismissed = { ...focus, dismissedNudge: { key: "1-1", score: 3 } };
+    expect(lowerSubNudge({ scores, focus: dismissed, framework: fw })).toBeNull();
+    expect(lowerSubNudge({ scores: { ...scores, "1-1": 2 }, focus: dismissed, framework: fw })).toMatchObject({ score: 2 });
+    expect(lowerSubNudge({ scores: { ...scores, "5-0": 1 }, focus: dismissed, framework: fw })).toMatchObject({
+      domainId: 5, score: 1,
+    });
+  });
 });

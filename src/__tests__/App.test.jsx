@@ -1,11 +1,16 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, waitFor, act } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import App from "../App.jsx";
 import ErrorBoundary from "../components/ErrorBoundary.jsx";
-import { KEYS } from "../lib/storage.js";
+import { KEYS, resetStorageStatus } from "../lib/storage.js";
+import { clearNotice, setNotice } from "../lib/notice.js";
 
 // Setting the hash queues a hashchange; let it fire before the test mounts anything.
 beforeEach(async () => {
+  resetStorageStatus();
+  clearNotice();
+  sessionStorage.clear();
   window.location.hash = "";
   await new Promise((r) => setTimeout(r, 0));
 });
@@ -100,6 +105,19 @@ describe("App", () => {
     expect(foot).toHaveTextContent("FrameworkSourcesSettings & privacy");
   });
 
+  it("hides the bottom tabs and offers Back on Settings, and keeps both on a tab screen", async () => {
+    seed();
+    window.location.hash = "#/settings";
+    render(<App />);
+    expect(screen.queryByRole("navigation", { name: "Primary" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Back to Today" })).toHaveAttribute("href", "#/");
+    act(() => {
+      window.location.hash = "#/journey";
+    });
+    await waitFor(() => expect(screen.getByRole("navigation", { name: "Primary" })).toBeInTheDocument());
+    expect(screen.queryByRole("link", { name: /^Back to/ })).not.toBeInTheDocument();
+  });
+
   it("narrows the column for form screens and keeps 960 for the catalogue", async () => {
     seed();
     window.location.hash = "#/settings";
@@ -109,6 +127,95 @@ describe("App", () => {
       window.location.hash = "#/practices";
     });
     await waitFor(() => expect(document.querySelector(".app-screen").style.maxWidth).toBe("960px"));
+  });
+});
+
+describe("App routes and notices", () => {
+  it("gives <main> an id and tabindex for the skip link", () => {
+    seed();
+    render(<App />);
+    expect(document.querySelector("main")).toHaveAttribute("id", "main");
+    expect(document.querySelector("main")).toHaveAttribute("tabindex", "-1");
+  });
+
+  it("renders the welcome wizard for its step routes", async () => {
+    window.location.hash = "#/welcome/rate";
+    render(<App />);
+    expect(screen.getByRole("heading", { level: 2, name: "How does each ground feel?" })).toBeInTheDocument();
+    expect(document.querySelector(".app-screen").style.maxWidth).toBe("720px");
+  });
+
+  it("shows a newcomer banner off the welcome screens, linking to the welcome", async () => {
+    window.location.hash = "#/assess";
+    render(<App />);
+    const link = screen.getByRole("link", { name: "Begin with a one-minute welcome." });
+    expect(link).toHaveAttribute("href", "#/welcome");
+  });
+
+  it("hides the newcomer banner on Check-in and Journey, whose empty states lead to the welcome", () => {
+    window.location.hash = "#/checkin";
+    const first = render(<App />);
+    expect(first.container.textContent).not.toMatch(/New here\?/);
+    first.unmount();
+    window.location.hash = "#/journey";
+    const second = render(<App />);
+    expect(second.container.textContent).not.toMatch(/New here\?/);
+    expect(screen.getByRole("link", { name: "Begin with a one-minute welcome" })).toHaveAttribute("href", "#/welcome");
+  });
+
+  it("shows no newcomer banner on the welcome screens or once rated", async () => {
+    render(<App />);
+    await waitFor(() => expect(window.location.hash).toBe("#/welcome"));
+    expect(screen.queryByText(/New here\?/)).not.toBeInTheDocument();
+    seed();
+    window.location.hash = "#/journey";
+    const second = render(<App />);
+    expect(second.container.textContent).not.toMatch(/New here\?/);
+  });
+
+  it("shows a persistent, undismissable alert when saving is off", () => {
+    seed();
+    const spy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    render(<App />);
+    spy.mockRestore();
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent("Saving is off in this browser. Download a copy before you leave.");
+    expect(alert.querySelector("button[class~='notice-btn']")).toHaveTextContent("Download a copy");
+    expect(screen.queryByRole("button", { name: "Dismiss" })).not.toBeInTheDocument();
+  });
+
+  it("offers no download button when saving is off and there is no data", () => {
+    window.location.hash = "#/assess";
+    const spy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    render(<App />);
+    spy.mockRestore();
+    expect(screen.getByRole("alert")).toHaveTextContent("Saving is off in this browser.");
+    expect(screen.queryByRole("button", { name: "Download a copy" })).not.toBeInTheDocument();
+  });
+
+  it("warns, dismissably, when saved data could not be read", async () => {
+    localStorage.setItem(KEYS.quick, JSON.stringify({ 1: 4, 2: 5, 3: 6, 4: 7 }));
+    localStorage.setItem(KEYS.checkins, JSON.stringify([{ junk: true }]));
+    render(<App />);
+    expect(screen.getByText("Some saved data could not be read.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open Settings" })).toHaveAttribute("href", "#/settings");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+    expect(screen.queryByText("Some saved data could not be read.")).not.toBeInTheDocument();
+  });
+
+  it("shows the one-shot notice and lets the person dismiss it", async () => {
+    seed();
+    setNotice("Restored 2 check-ins.");
+    render(<App />);
+    expect(screen.getByRole("status")).toHaveTextContent("Restored 2 check-ins.");
+    await userEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+    expect(screen.queryByText("Restored 2 check-ins.")).not.toBeInTheDocument();
+    expect(sessionStorage.getItem("life-improver:notice")).toBeNull();
   });
 });
 

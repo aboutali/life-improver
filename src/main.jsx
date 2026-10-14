@@ -2,11 +2,13 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App.jsx";
 import "./styles.css";
-import { runMigrations } from "./lib/storage.js";
+import { detectStorage, runMigrations } from "./lib/storage.js";
 import { registerSW } from "virtual:pwa-register";
 import { createUpdatePolicy } from "./lib/updatePolicy.js";
 
-// Stamp storage metadata before anything reads it.
+// Find out once whether this browser lets us save, then stamp storage
+// metadata before anything reads it.
+detectStorage();
 runMigrations();
 
 // registerType "prompt": a new version installs and waits. It is applied (the

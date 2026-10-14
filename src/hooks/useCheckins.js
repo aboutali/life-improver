@@ -17,7 +17,13 @@ export function useCheckins() {
     [setCheckins]
   );
 
+  // Removes the check-in with this id. An unknown id changes nothing.
+  const removeCheckin = useCallback(
+    (id) => setCheckins((prev) => (prev.some((c) => c.id === id) ? prev.filter((c) => c.id !== id) : prev)),
+    [setCheckins]
+  );
+
   const reset = useCallback(() => setCheckins([]), [setCheckins]);
 
-  return { checkins, addCheckin, reset };
+  return { checkins, addCheckin, removeCheckin, reset };
 }

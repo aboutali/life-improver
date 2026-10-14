@@ -1,40 +1,53 @@
 import { useId, useState } from "react";
 import { downloadIcs } from "../lib/ics.js";
+import { nextOccurrence, firstOneLabel } from "../lib/rhythm.js";
+import { Chevron } from "./TodayIcons.jsx";
+import Sheet from "./Sheet.jsx";
+import { showHud } from "./showHud.jsx";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
-// The next moment that falls on `day` (0 = Sunday) at "HH:MM" local time,
-// strictly after `now`.
-function nextOccurrence(day, time, now = new Date()) {
-  const [h, m] = time.split(":").map(Number);
-  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h || 0, m || 0, 0, 0);
-  start.setDate(start.getDate() + ((day - now.getDay() + 7) % 7));
-  if (start.getTime() <= now.getTime()) start.setDate(start.getDate() + 7);
-  return start;
-}
-
-// A button that opens a small day-and-time picker, then downloads a weekly
-// .ics event. `buildIcs(start: Date)` returns the calendar text.
+// A button that opens a bottom sheet with a day-and-time picker, then downloads
+// a weekly .ics event. `buildIcs(start: Date)` returns the calendar text. The
+// sheet says when the first one falls. `minDaysAhead` keeps it at least that
+// many days after today.
+//
+// The sheet is titled with `label`. Open it from the built-in button, or drive
+// it yourself: pass `open` and `onClose` (and showTrigger={false}).
 export default function CalendarButton({
   label,
   buildIcs,
   filename,
   defaultDay = 0,
   defaultTime = "18:00",
-  triggerClassName = "btn btn-tap",
+  minDaysAhead = 0,
+  triggerClassName = "btn",
+  icon = null,
+  chevron = false,
   defaultOpen = false,
   showTrigger = true,
+  open: openProp,
+  onClose,
 }) {
   const uid = useId();
-  const [open, setOpen] = useState(defaultOpen);
+  const [innerOpen, setInnerOpen] = useState(defaultOpen);
   const [day, setDay] = useState(defaultDay);
   const [time, setTime] = useState(defaultTime);
-  const [done, setDone] = useState(false);
+  const controlled = openProp !== undefined;
+  const open = controlled ? openProp : innerOpen;
+  const close = () => {
+    if (controlled) {
+      if (onClose) onClose();
+    } else {
+      setInnerOpen(false);
+    }
+  };
 
   const add = () => {
-    const start = nextOccurrence(day, time || defaultTime);
+    const start = nextOccurrence(day, time || defaultTime, { minDaysAhead });
     downloadIcs(filename, buildIcs(start));
-    setDone(true);
+    showHud("Added to calendar");
+    close();
   };
 
   return (
@@ -43,15 +56,16 @@ export default function CalendarButton({
         <button
           type="button"
           className={triggerClassName}
-          aria-expanded={open}
-          aria-controls={`${uid}-panel`}
-          onClick={() => setOpen((o) => !o)}
+          aria-haspopup="dialog"
+          onClick={() => setInnerOpen(true)}
         >
-          {label}
+          {icon}
+          <span>{label}</span>
+          {chevron && <Chevron />}
         </button>
       )}
-      {open && (
-        <div id={`${uid}-panel`} className="cal-panel" role="group" aria-label={label}>
+      <Sheet open={open} onClose={close} title={label}>
+        <div className="cal-panel">
           <div className="cal-fields">
             <label className="cal-field" htmlFor={`${uid}-day`}>
               <span>Day</span>
@@ -59,7 +73,7 @@ export default function CalendarButton({
                 id={`${uid}-day`}
                 className="input"
                 value={day}
-                onChange={(e) => { setDay(Number(e.target.value)); setDone(false); }}
+                onChange={(e) => setDay(Number(e.target.value))}
               >
                 {DAYS.map((name, i) => (
                   <option key={name} value={i}>{name}</option>
@@ -73,18 +87,19 @@ export default function CalendarButton({
                 className="input"
                 type="time"
                 value={time}
-                onChange={(e) => { setTime(e.target.value); setDone(false); }}
+                onChange={(e) => setTime(e.target.value)}
               />
             </label>
           </div>
-          <button type="button" className="btn btn-tap" onClick={add}>
+          <p className="cal-first">
+            {firstOneLabel({ day, time: time || defaultTime, minDaysAhead })}
+          </p>
+          <p className="cal-note">It repeats weekly. Open the file to save it to your calendar.</p>
+          <button type="button" className="btn btn-primary btn-block" onClick={add}>
             Download calendar file
           </button>
-          <p className="cal-note" role="status">
-            {done ? "Downloaded. Open the file to save it to your calendar. It repeats weekly." : ""}
-          </p>
         </div>
-      )}
+      </Sheet>
     </div>
   );
 }

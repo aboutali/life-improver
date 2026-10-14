@@ -10,7 +10,7 @@ const TRACK = "#1E293B";
 const MUTED = "#64748B";
 const SOFT = "#CBD5E1";
 const BRIGHT = "#F1F5F9";
-const SANS = "'Source Sans 3', 'Segoe UI', Arial, sans-serif";
+const SANS = "-apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI', Roboto, Arial, sans-serif";
 const SERIF = "'Source Serif 4', Georgia, serif";
 const FOOTER = "Before you arrange the stones, first see the whole garden.";
 

@@ -1,5 +1,6 @@
 import { Component } from "react";
 import { href } from "../lib/router.js";
+import EmptyState from "./EmptyState.jsx";
 
 // Catches a screen that cannot render (most often damaged saved data) and
 // offers a calm way out. Resets itself when `resetKey` changes (the route).
@@ -23,17 +24,20 @@ export default class ErrorBoundary extends Component {
   render() {
     if (!this.state.failed) return this.props.children;
     return (
-      <div className="cd" role="alert" style={{ textAlign: "center", padding: 32 }}>
-        <h2 className="sf" tabIndex={-1} style={{ fontSize: "var(--fs-title)", fontWeight: 400, color: "#1A1A1A", marginBottom: 8 }}>
-          Something went astray
-        </h2>
-        <p style={{ fontSize: 14, color: "#666", marginBottom: 16 }}>
-          Your data may be damaged. Export or start over in Settings.
-        </p>
-        <a className="btn btn-primary btn-tap" href={href("/settings")} style={{ textDecoration: "none", display: "inline-flex", alignItems: "center" }}>
-          Open Settings
-        </a>
-      </div>
+      <EmptyState
+        icon="alert"
+        level={2}
+        role="alert"
+        titleProps={{ tabIndex: -1 }}
+        title="Something went astray"
+        action={
+          <a className="btn btn-primary btn-tap" href={href("/settings")}>
+            Open Settings
+          </a>
+        }
+      >
+        Your data may be damaged. Export or start over in Settings.
+      </EmptyState>
     );
   }
 }

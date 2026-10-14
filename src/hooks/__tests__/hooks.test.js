@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { usePersistentState } from "../usePersistentState.js";
 import { useToday } from "../useToday.js";
@@ -7,7 +7,7 @@ import { useQuickScores } from "../useQuickScores.js";
 import { useFocus } from "../useFocus.js";
 import { useCheckins } from "../useCheckins.js";
 import { useScores } from "../useScores.js";
-import { KEYS } from "../../lib/storage.js";
+import { KEYS, getStorageStatus, resetStorageStatus } from "../../lib/storage.js";
 
 const stored = (key) => JSON.parse(localStorage.getItem(key));
 
@@ -100,6 +100,25 @@ describe("useCheckins", () => {
     act(() => result.current.addCheckin({ ...make("b"), note: undefined }));
     expect(result.current.checkins[0].note).toBe("short");
     expect(result.current.checkins[1].note).toBe("");
+  });
+
+  it("removes a check-in by id and persists", () => {
+    const { result } = renderHook(() => useCheckins());
+    act(() => {
+      result.current.addCheckin(make("a"));
+      result.current.addCheckin(make("b"));
+      result.current.addCheckin(make("c"));
+    });
+    act(() => result.current.removeCheckin("b"));
+    expect(result.current.checkins.map((c) => c.id)).toEqual(["a", "c"]);
+    expect(stored(KEYS.checkins).map((c) => c.id)).toEqual(["a", "c"]);
+  });
+
+  it("ignores an unknown id when removing", () => {
+    const { result } = renderHook(() => useCheckins());
+    act(() => result.current.addCheckin(make("a")));
+    act(() => result.current.removeCheckin("zzz"));
+    expect(result.current.checkins).toHaveLength(1);
   });
 
   it("appends several check-ins added in the same tick", () => {
@@ -225,5 +244,65 @@ describe("useToday", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe("usePersistentState damage handling", () => {
+  beforeEach(() => resetStorageStatus());
+
+  it("copies unparsable text to :bad once, falls back, and reports the key", () => {
+    localStorage.setItem("k", "{oops");
+    const { result } = renderHook(() => usePersistentState("k", { a: 1 }));
+    expect(result.current[0]).toEqual({ a: 1 });
+    expect(localStorage.getItem("k:bad")).toBe("{oops");
+    expect(getStorageStatus().damaged).toContain("k");
+    // The backup is written once: a later damaged value does not replace it.
+    localStorage.setItem("k", "{again");
+    renderHook(() => usePersistentState("k", { a: 1 }));
+    expect(localStorage.getItem("k:bad")).toBe("{oops");
+  });
+
+  it("reports a key whose value a sanitizer trimmed", () => {
+    localStorage.setItem(KEYS.checkins, JSON.stringify([{ nope: true }]));
+    const { result } = renderHook(() => useCheckins());
+    expect(result.current.checkins).toEqual([]);
+    expect(getStorageStatus().damaged).toEqual([KEYS.checkins]);
+    expect(localStorage.getItem(`${KEYS.checkins}:bad`)).not.toBeNull();
+  });
+
+  it("leaves clean data unreported", () => {
+    localStorage.setItem(KEYS.quick, JSON.stringify({ 1: 4 }));
+    renderHook(() => useQuickScores());
+    expect(getStorageStatus().damaged).toEqual([]);
+  });
+
+  it("marks saving off when a write throws", () => {
+    getStorageStatus();
+    const spy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    renderHook(() => usePersistentState("k2", 1));
+    spy.mockRestore();
+    expect(getStorageStatus().available).toBe(false);
+  });
+});
+
+describe("usePrefs", () => {
+  it("defaults to haptics on, persists a change and shares it with haptics.js", async () => {
+    const { usePrefs } = await import("../usePrefs.js");
+    const { hapticsEnabled } = await import("../../lib/haptics.js");
+    const { result } = renderHook(() => usePrefs());
+    expect(result.current.prefs).toEqual({ haptics: true });
+    act(() => result.current.setHaptics(false));
+    expect(result.current.prefs.haptics).toBe(false);
+    expect(stored(KEYS.prefs)).toEqual({ haptics: false });
+    expect(hapticsEnabled()).toBe(false);
+  });
+
+  it("loads a stored preference", async () => {
+    const { usePrefs } = await import("../usePrefs.js");
+    localStorage.setItem(KEYS.prefs, JSON.stringify({ haptics: false }));
+    const { result } = renderHook(() => usePrefs());
+    expect(result.current.prefs.haptics).toBe(false);
   });
 });

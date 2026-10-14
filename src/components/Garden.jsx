@@ -1,18 +1,14 @@
 import { FRAMEWORK } from "../data/framework.js";
+import { domainReading } from "../lib/trends.js";
 
-const FOCUS_BAR = "#2B6CB0";
-const OTHER_BAR = "#90B4DA";
-
-// Seven quiet bars: one per domain. Full-assessment averages where they exist,
-// quick scores otherwise. The caption says which source is on show, and the
-// focus domain is drawn a little stronger than the rest.
+// Seven quiet bars: one per domain. The full-assessment average once at least
+// half the domain's subs are rated, the quick score otherwise; a partly rated
+// domain says "n of m rated". The caption says which source is on show, and the
+// focus domain is drawn a little stronger than the rest. Bar colours live in CSS.
 export default function Garden({ scores, quickScores = {}, focusDomainId = null }) {
-  const rows = FRAMEWORK.map((d, di) => {
-    const full = scores.domainAverage(di);
-    if (full !== null) return { id: d.id, name: d.domain, value: Number(full), source: "full" };
-    const q = quickScores[d.id];
-    if (typeof q === "number") return { id: d.id, name: d.domain, value: q, source: "quick" };
-    return { id: d.id, name: d.domain, value: null, source: null };
+  const rows = FRAMEWORK.map((d) => {
+    const r = domainReading(d, scores.scores, quickScores);
+    return { id: d.id, name: d.domain, ...r };
   });
 
   const hasFull = rows.some((r) => r.source === "full");
@@ -27,8 +23,8 @@ export default function Garden({ scores, quickScores = {}, focusDomainId = null 
 
   return (
     <section className="cd garden" aria-labelledby="garden-title">
-      <h3 id="garden-title" className="sf garden-title">Your garden</h3>
-      <p className="garden-cap">{caption}</p>
+      <h3 id="garden-title" className="t-title">Your garden</h3>
+      <p className="t-foot garden-cap">{caption}</p>
       <ul className="garden-list">
         {rows.map((r) => {
           const isFocus = r.id === focusDomainId;
@@ -38,12 +34,13 @@ export default function Garden({ scores, quickScores = {}, focusDomainId = null 
                 {r.name}
                 {isFocus && <span className="sr-only">, this week&rsquo;s focus</span>}
                 {r.source === "quick" && <span className="garden-tag" aria-hidden="true">quick</span>}
+                {r.partial && <span className="t-foot garden-partial">{r.rated} of {r.total} rated</span>}
               </span>
               <span className="garden-track" aria-hidden="true">
                 {r.value !== null && (
                   <span
                     className={`garden-fill${r.source === "quick" ? " quick" : ""}`}
-                    style={{ width: `${r.value * 10}%`, background: isFocus ? FOCUS_BAR : OTHER_BAR }}
+                    style={{ width: `${r.value * 10}%` }}
                   />
                 )}
               </span>
